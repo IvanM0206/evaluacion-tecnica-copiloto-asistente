@@ -1,0 +1,7 @@
+Django>=5.1,<5.2
+django-ninja>=1.8,<2
+pydantic>=2.9,<3
+httpx>=0.28,<1
+anthropic>=2.10,<3
+gunicorn>=23
+whitenoise>=6.8,<7
