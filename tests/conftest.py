@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+import os
+
+# Tiene que pasar antes de importar los settings de Django (LLM_PROVIDER se lee al importar).
+os.environ["LLM_PROVIDER"] = "mock"
+os.environ.pop("ANTHROPIC_API_KEY", None)
+
 import socket
 from collections.abc import Callable, Iterator
 
@@ -16,8 +22,10 @@ from services.models import ReferenceCase
 
 
 @pytest.fixture(autouse=True)
-def _no_network(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Hace que cualquier conexión de red real falle de forma explícita."""
+def _offline_mock_provider(monkeypatch: pytest.MonkeyPatch, settings) -> None:  # type: ignore[no-untyped-def]
+    """Fuerza el provider mock y hace que cualquier conexión de red real falle de forma explícita."""
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    settings.LLM_PROVIDER = "mock"
 
     def _blocked(*_args: object, **_kwargs: object) -> None:
         raise RuntimeError("Network access is disabled in tests")
