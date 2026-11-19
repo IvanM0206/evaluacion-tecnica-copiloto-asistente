@@ -1,0 +1,75 @@
+<section class="card panel right-panel">
+  <div class="suggestion-form">
+    <header class="panel-head">
+      <h2>Sugerencia del copiloto</h2>
+      <span class="badge">Certeza {{ suggestion.confidence_pct }}%</span>
+    </header>
+
+    <div class="panel-body accordions">
+      {% if suggestion.warnings %}
+        <details class="accordion warn" open>
+          <summary><span>Advertencias</span><span class="badge warn">{{ suggestion.warnings|length }}</span></summary>
+          <ul class="warnings">{% for w in suggestion.warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+        </details>
+      {% endif %}
+
+      <details class="accordion" open>
+        <summary>
+          <span>Tipificación y prioridad</span>
+          <span class="badge {{ suggestion.priority }}">{{ suggestion.priority }}</span>
+        </summary>
+        <dl class="facts">
+          <div><dt>Categoría</dt><dd>{{ suggestion.category }}</dd></div>
+          <div><dt>Subcategoría</dt><dd>{{ suggestion.subcategory }}</dd></div>
+        </dl>
+        <p class="muted">{{ suggestion.priority_rationale }}</p>
+      </details>
+
+      <details class="accordion" open>
+        <summary><span>Ubicación</span><span class="summary-meta">{{ suggestion.location_summary }}</span></summary>
+        <dl class="facts">
+          {% for name, label, field in suggestion.location_fields %}
+            <div><dt>{{ label }}</dt><dd>{{ field.display_value|default:"—" }}</dd><small class="{{ field.state }}">{{ field.hint }}</small></div>
+          {% endfor %}
+        </dl>
+      </details>
+
+      <details class="accordion" open>
+        <summary>
+          <span>Instrucciones pre-arribo <span class="muted">(leer al llamante)</span></span>
+          <span class="badge">{{ suggestion.pre_arrival_instructions|length }}</span>
+        </summary>
+        <ol class="instructions">
+          {% for i in suggestion.pre_arrival_instructions %}<li>{{ i }}</li>{% empty %}<li>Sin instrucciones de referencia: aplicar protocolo general.</li>{% endfor %}
+        </ol>
+      </details>
+
+      <details class="accordion" open>
+        <summary>
+          <span>Checklist de protocolo</span>
+          <span class="badge">{{ suggestion.answered_count }}/{{ suggestion.checklist|length }} respondidas</span>
+        </summary>
+        <ul class="checklist">
+          {% for c in suggestion.checklist_pending_first %}
+            <li class="{% if c.answered %}done{% endif %}">
+              <span class="mark" aria-hidden="true">{% if c.answered %}✓{% else %}○{% endif %}</span>
+              <span>{{ c.question }}
+                {% if c.answered %}<span class="ev">{% if c.grounded %}✓{% else %}⚠{% endif %} {{ c.answer|default:"" }}</span>{% else %}<span class="ev">Pendiente: preguntar</span>{% endif %}
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+      </details>
+
+      <details class="accordion" open>
+        <summary><span>Riesgos</span><span class="badge">{{ suggestion.risks|length }}</span></summary>
+        <div class="chips">{% for r in suggestion.risks %}<span>{{ r }}</span>{% empty %}<span class="muted">—</span>{% endfor %}</div>
+      </details>
+
+      <details class="accordion" open>
+        <summary><span>Recursos sugeridos <span class="muted">(decide el despachador)</span></span></summary>
+        <p class="body-text">{{ suggestion.suggested_resources|default:"—" }}</p>
+      </details>
+    </div>
+  </div>
+</section>

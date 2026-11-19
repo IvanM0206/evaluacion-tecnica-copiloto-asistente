@@ -1,0 +1,73 @@
+{% extends "frontend/base.html" %}
+
+{% block body_class %}workspace{% endblock %}
+{% block shortcuts %}
+  <li><kbd>E</kbd> Editar transcripción</li>
+  <li><kbd>N</kbd> Nueva transcripción</li>
+  <li><kbd>A</kbd> Analizar (en "Nueva transcripción")</li>
+{% endblock %}
+
+{% block content %}
+<main class="workspace-grid">
+  <!-- Izquierda: transcripción. El modo (ver / editar / nueva) se cambia solo con CSS mediante radios. -->
+  <section class="card panel left-panel">
+    <input type="radio" name="left-mode" id="mode-view" class="mode-radio" {% if mode == "view" %}checked{% endif %} />
+    <input type="radio" name="left-mode" id="mode-edit" class="mode-radio" {% if mode == "edit" %}checked{% endif %} />
+    <input type="radio" name="left-mode" id="mode-new" class="mode-radio" {% if mode == "new" %}checked{% endif %} />
+
+    <!-- Ver: transcripción de solo lectura -->
+    <div class="pane pane-view">
+      <header class="panel-head">
+        <h2>Transcripción</h2>
+        <div class="row">
+          <label for="mode-edit" class="btn btn-sm" accesskey="e">✎ Editar</label>
+          <label for="mode-new" class="btn btn-sm btn-primary" accesskey="n">+ Nueva transcripción</label>
+        </div>
+      </header>
+      <div class="panel-body">
+        <ol class="turns">
+          {% for t in turns %}
+            <li class="turn {{ t.role }}">
+              {% if t.speaker %}<span class="speaker">{{ t.speaker }}</span>{% endif %}
+              <p>{{ t.text }}</p>
+            </li>
+          {% endfor %}
+        </ol>
+      </div>
+    </div>
+
+    <!-- Editar: modificar la transcripción actual y volver a analizarla -->
+    <div class="pane pane-edit">
+      <header class="panel-head">
+        <h2>Editar transcripción</h2>
+      </header>
+      <form method="post" action="{% url 'frontend:analyze' %}" class="panel-body stack">
+        {% csrf_token %}
+        <input type="hidden" name="origin" value="workspace" />
+        <textarea id="edit-transcript" name="transcript" class="transcript-input grow" aria-label="Transcripción">{{ transcript }}</textarea>
+        <div class="row between actions">
+          <label for="mode-view" class="btn btn-ghost">Cancelar</label>
+          <button class="btn btn-primary">Reanalizar</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Nueva: la misma entrada que la pantalla inicial, limitada a esta columna -->
+    <div class="pane pane-new">
+      <header class="panel-head">
+        <h2>Nueva transcripción</h2>
+        <label for="mode-view" class="btn btn-sm btn-ghost">Cancelar</label>
+      </header>
+      <div class="panel-body">
+        {% url 'frontend:workspace' as workspace_url %}
+        {% with sample_url=workspace_url|add:"?sample="|add:demo_sample_id %}
+          {% include "frontend/_upload_form.html" with origin="workspace" prefix="new" value=new_transcript %}
+        {% endwith %}
+      </div>
+    </div>
+  </section>
+
+  <!-- Derecha: sugerencia del copiloto -->
+  {% include "frontend/_suggestion.html" %}
+</main>
+{% endblock %}

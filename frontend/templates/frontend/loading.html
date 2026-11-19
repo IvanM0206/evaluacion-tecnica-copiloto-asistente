@@ -1,0 +1,16 @@
+{% extends "frontend/base.html" %}
+
+{# Sin JavaScript: el meta refresh dispara GET /analisis/ y el navegador mantiene esta página
+   (y su spinner) en pantalla hasta que llega la respuesta del análisis. #}
+{% block head %}<meta http-equiv="refresh" content="0;url={% url 'frontend:workspace' %}" />{% endblock %}
+{% block body_class %}loading-page{% endblock %}
+{% block shortcuts_help %}{% endblock %}
+
+{% block content %}
+<div class="loading-overlay" role="status" aria-live="polite">
+  <div class="spinner" aria-hidden="true"></div>
+  <p class="loading-title">Analizando la transcripción…</p>
+  <p class="muted">Extrayendo ubicación, tipología, prioridad y checklist de protocolo.</p>
+  <a class="link small" href="{% url 'frontend:workspace' %}">Si no avanza, hacé clic acá</a>
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% load static %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  {% block head %}{% endblock %}
+  <title>Copiloto de Operador · Soflex</title>
+  <link rel="stylesheet" href="{% static 'frontend/styles.css' %}" />
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  {% with current=request.resolver_match.url_name %}
+  <header class="topbar">
+    <h1><a href="{% url 'frontend:index' %}">Copiloto de Operador</a></h1>
+    {# Navegación principal: sumar acá las pantallas nuevas (un <a> por ítem). #}
+    <nav class="topnav" aria-label="Secciones">
+      <a href="{% url 'frontend:index' %}" {% if current in "index workspace" %}class="active" aria-current="page"{% endif %}>Panel</a>
+    </nav>
+    {% if health %}<span class="badge topbar-status">Proveedor: {{ health.provider }} · {{ health.catalog_size }} casos</span>{% endif %}
+  </header>
+  {% endwith %}
+
+  {% if messages %}
+    <ul class="flash">
+      {% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}
+    </ul>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+
+  {% block shortcuts_help %}
+  {# Ayuda de teclado flotante. Solo CSS: se abre con hover o foco de teclado y se cierra al salir. #}
+  <div class="kbd-help">
+    <button type="button" class="kbd-help-btn" aria-describedby="kbd-help-panel" aria-label="Atajos de teclado">⌨</button>
+    <div class="kbd-help-panel" id="kbd-help-panel" role="tooltip">
+      <p class="kbd-help-title">Atajos de teclado</p>
+      <ul>
+        {% block shortcuts %}<li><kbd>A</kbd> Analizar transcripción</li>{% endblock %}
+      </ul>
+      <p class="muted">Combinar con <kbd>Alt</kbd> (Chrome/Edge), <kbd>Alt</kbd>+<kbd>Shift</kbd> (Firefox) o <kbd>Ctrl</kbd>+<kbd>Option</kbd> (Mac).</p>
+    </div>
+  </div>
+  {% endblock %}
+</body>
+</html>

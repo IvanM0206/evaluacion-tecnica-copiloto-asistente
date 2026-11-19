@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "backend",
     "api",
+    "frontend",
 ]
 
 MIDDLEWARE = [
@@ -81,6 +82,8 @@ DATASET_PATH = Path(os.getenv("DATASET_PATH", DATA_DIR / "dataset_challenge_sofl
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "").strip().lower()
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-opus-5-5")
 
+# La capa frontend habla con la API solo por HTTP. Por defecto llama a este mismo
+# servidor; apuntarla a otro lado permite separar frontend y API en dos procesos.
 API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api")
 API_TIMEOUT_SECONDS = float(os.getenv("API_TIMEOUT_SECONDS", "45"))
 

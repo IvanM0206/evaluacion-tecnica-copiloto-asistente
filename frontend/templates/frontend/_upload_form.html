@@ -1,0 +1,20 @@
+{# Entrada de la transcripción: escribirla, subir un .txt o cargar el ejemplo. Parámetros: origin, prefix, value, sample_url #}
+<form method="post" action="{% url 'frontend:analyze' %}" enctype="multipart/form-data" class="upload stack">
+  {% csrf_token %}
+  <input type="hidden" name="origin" value="{{ origin }}" />
+
+  <label for="{{ prefix }}-transcript">Escribí o pegá la desgrabación de la llamada</label>
+  <textarea id="{{ prefix }}-transcript" name="transcript" class="transcript-input"
+            placeholder="Operador: 911, ¿cuál es su emergencia? Llamante: …">{{ value }}</textarea>
+
+  <div class="divider" aria-hidden="true"><span>o</span></div>
+
+  <label for="{{ prefix }}-file">Subí un archivo de texto (.txt)</label>
+  <input id="{{ prefix }}-file" type="file" name="transcript_file" accept=".txt,text/plain" class="file-input" />
+  <small class="muted">Si elegís un archivo, se analiza el archivo en lugar del texto escrito.</small>
+
+  <div class="row between actions">
+    <a class="btn btn-ghost" href="{{ sample_url }}">Usar plantilla de ejemplo</a>
+    <button class="btn btn-primary" accesskey="a">Analizar</button>
+  </div>
+</form>
