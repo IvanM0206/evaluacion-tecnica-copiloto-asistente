@@ -5,6 +5,7 @@ Importar desde `backend.models` (este paquete re-exporta todos los modelos).
 
 from __future__ import annotations
 
+from backend.models.call_card import CallCard
 from backend.models.incident import Incident
 
-__all__ = ["Incident"]
+__all__ = ["CallCard", "Incident"]

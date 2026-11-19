@@ -13,7 +13,7 @@ import httpx
 from django.conf import settings
 from pydantic import TypeAdapter, ValidationError
 
-from frontend.view_models import HealthVM, SampleVM, SuggestionVM
+from frontend.view_models import CallCardFormVM, CallCardVM, HealthVM, SampleVM, SuggestionVM
 
 T = TypeVar("T")
 
@@ -39,6 +39,12 @@ class ApiClient:
 
     def analyze(self, transcript: str) -> SuggestionVM:
         return self._send("POST", "/copilot/analyze", {"transcript": transcript}, SuggestionVM)
+
+    def derive_card(self, card: CallCardFormVM) -> CallCardVM:
+        return self._send("POST", "/cards", card.model_dump(), CallCardVM)
+
+    def cards(self) -> list[CallCardVM]:
+        return self._get("/cards", list[CallCardVM])
 
     # -------------------------------------------------------------- auxiliares
     def _get(self, path: str, model: type[T]) -> T:

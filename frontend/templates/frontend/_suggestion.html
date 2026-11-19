@@ -1,5 +1,14 @@
+{% load l10n %}
 <section class="card panel right-panel">
-  <div class="suggestion-form">
+  <form method="post" action="{% url 'frontend:derive' %}" class="suggestion-form">
+    {% csrf_token %}
+    <input type="hidden" name="transcript" value="{{ transcript }}" />
+    <input type="hidden" name="ai_confidence" value="{{ suggestion.confidence|unlocalize }}" />
+    <input type="hidden" name="ai_provider" value="{{ suggestion.provider }}" />
+    <input type="hidden" name="suggested_resources" value="{{ suggestion.suggested_resources }}" />
+    {% for r in suggestion.risks %}<input type="hidden" name="risks" value="{{ r }}" />{% endfor %}
+    {% for i in suggestion.pre_arrival_instructions %}<input type="hidden" name="instructions" value="{{ i }}" />{% endfor %}
+
     <header class="panel-head">
       <h2>Sugerencia del copiloto</h2>
       <span class="badge">Certeza {{ suggestion.confidence_pct }}%</span>
@@ -18,20 +27,32 @@
           <span>Tipificación y prioridad</span>
           <span class="badge {{ suggestion.priority }}">{{ suggestion.priority }}</span>
         </summary>
-        <dl class="facts">
-          <div><dt>Categoría</dt><dd>{{ suggestion.category }}</dd></div>
-          <div><dt>Subcategoría</dt><dd>{{ suggestion.subcategory }}</dd></div>
-        </dl>
+        <div class="prio-row">
+          <label>Prioridad
+            <select name="priority" class="{{ suggestion.priority }}">
+              {% for p in priorities %}<option {% if p == suggestion.priority %}selected{% endif %}>{{ p }}</option>{% endfor %}
+            </select>
+          </label>
+          <label>Categoría
+            <select name="category">
+              {% for c in categories %}<option {% if c == suggestion.category %}selected{% endif %}>{{ c }}</option>{% endfor %}
+            </select>
+          </label>
+          <label class="grow">Subcategoría <input name="subcategory" value="{{ suggestion.subcategory }}" /></label>
+        </div>
         <p class="muted">{{ suggestion.priority_rationale }}</p>
       </details>
 
       <details class="accordion" open>
         <summary><span>Ubicación</span><span class="summary-meta">{{ suggestion.location_summary }}</span></summary>
-        <dl class="facts">
+        <div class="fields">
           {% for name, label, field in suggestion.location_fields %}
-            <div><dt>{{ label }}</dt><dd>{{ field.display_value|default:"—" }}</dd><small class="{{ field.state }}">{{ field.hint }}</small></div>
+            <label>{{ label }}
+              <input name="{{ name }}" value="{{ field.display_value }}" />
+              <small class="{{ field.state }}">{{ field.hint }}</small>
+            </label>
           {% endfor %}
-        </dl>
+        </div>
       </details>
 
       <details class="accordion" open>
@@ -52,10 +73,11 @@
         <ul class="checklist">
           {% for c in suggestion.checklist_pending_first %}
             <li class="{% if c.answered %}done{% endif %}">
-              <span class="mark" aria-hidden="true">{% if c.answered %}✓{% else %}○{% endif %}</span>
-              <span>{{ c.question }}
-                {% if c.answered %}<span class="ev">{% if c.grounded %}✓{% else %}⚠{% endif %} {{ c.answer|default:"" }}</span>{% else %}<span class="ev">Pendiente: preguntar</span>{% endif %}
-              </span>
+              <input type="hidden" name="questions" value="{{ c.question }}" />
+              <input type="checkbox" name="answered" value="{{ c.question }}" id="q{{ forloop.counter }}" {% if c.answered %}checked{% endif %} />
+              <label for="q{{ forloop.counter }}">{{ c.question }}
+                {% if c.answered %}<span class="ev">{% if c.grounded %}✓{% else %}⚠{% endif %} {{ c.answer|default:"" }}</span>{% endif %}
+              </label>
             </li>
           {% endfor %}
         </ul>
@@ -70,6 +92,15 @@
         <summary><span>Recursos sugeridos <span class="muted">(decide el despachador)</span></span></summary>
         <p class="body-text">{{ suggestion.suggested_resources|default:"—" }}</p>
       </details>
+
+      <details class="accordion" open>
+        <summary><span>Notas del operador</span></summary>
+        <textarea name="operator_notes" rows="3" aria-label="Notas del operador">{{ operator_notes }}</textarea>
+      </details>
     </div>
-  </div>
+
+    <footer class="panel-foot">
+      <button class="btn btn-primary btn-block" accesskey="d">Derivar Carta de Llamada</button>
+    </footer>
+  </form>
 </section>

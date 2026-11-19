@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from django.test import Client
 
@@ -112,4 +114,56 @@ def test_create_incident_requires_token(api: Client, settings, configured: str, 
 def test_openapi_docs_are_served(api: Client) -> None:
     assert api.get("/api/docs").status_code == 200
     paths = api.get("/api/openapi.json").json()["paths"]
-    assert {"/api/health", "/api/catalog/samples", "/api/copilot/analyze"} <= paths.keys()
+    assert {"/api/health", "/api/catalog/samples", "/api/copilot/analyze", "/api/cards"} <= paths.keys()
+
+
+# ------------------------------------------------------------------ cartas
+def _card_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "transcript": "Operador: 911. Llamante: Se prendió fuego la cocina en Av. Corrientes 1540.",
+        "street": "Av. Corrientes",
+        "street_number": "1540",
+        "intersection": "Montevideo",
+        "category": "INCENDIO_RESCATE",
+        "subcategory": "Incendio en Comercio Gastronómico",
+        "priority": "P1",
+        "answered_questions": ["¿Hay personas atrapadas en el interior?"],
+        "pending_questions": ["¿Pudo cortar la llave de gas general?"],
+        "instructions_given": ["No reingresar al local por ningún motivo."],
+        "risks": ["Personas atrapadas"],
+        "ai_confidence": 0.82,
+        "ai_provider": "mock",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_create_card_returns_201_and_is_listed(api: Client) -> None:
+    created = api.post("/api/cards", _card_payload(), content_type="application/json")
+    assert created.status_code == 201
+    card = created.json()
+    assert card["id"] > 0 and card["created_at"]
+    assert card["street"] == "Av. Corrientes" and card["street_number"] == "1540"
+    assert card["neighborhood"] is None, "el texto opcional vacío vuelve como null"
+
+    listed = api.get("/api/cards")
+    assert listed.status_code == 200
+    assert [c["id"] for c in listed.json()] == [card["id"]]
+
+
+def test_cards_are_listed_newest_first_and_respect_limit(api: Client) -> None:
+    ids = [
+        api.post("/api/cards", _card_payload(street_number=n), content_type="application/json").json()["id"]
+        for n in ("100", "200", "300")
+    ]
+    assert [c["id"] for c in api.get("/api/cards?limit=2").json()] == ids[::-1][:2]
+
+
+@pytest.mark.parametrize("override", [{"street": ""}, {"priority": "P9"}, {"category": "OVNI"}])
+def test_create_card_rejects_invalid_payload(api: Client, override: dict[str, str]) -> None:
+    response = api.post("/api/cards", _card_payload(**override), content_type="application/json")
+    assert response.status_code == 422
+
+
+def test_cards_empty_list(api: Client) -> None:
+    assert api.get("/api/cards").json() == []

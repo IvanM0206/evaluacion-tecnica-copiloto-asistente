@@ -9,4 +9,6 @@ urlpatterns = [
     path("analizar/", views.analyze, name="analyze"),
     path("cargando/", views.loading, name="loading"),
     path("analisis/", views.workspace, name="workspace"),
+    path("derivar/", views.derive, name="derive"),
+    path("cartas/", views.cards, name="cards"),
 ]

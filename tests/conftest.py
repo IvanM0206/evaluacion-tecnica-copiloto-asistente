@@ -28,10 +28,10 @@ def _no_network(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture(autouse=True)
 def _reset_service_singletons() -> Iterator[None]:
     """Los servicios cachean instancias (y sus índices lazy / caché del catálogo) por proceso."""
-    for factory in (container.catalog_service, container.copilot_service):
+    for factory in (container.catalog_service, container.copilot_service, container.call_card_service):
         factory.cache_clear()
     yield
-    for factory in (container.catalog_service, container.copilot_service):
+    for factory in (container.catalog_service, container.copilot_service, container.call_card_service):
         factory.cache_clear()
 
 

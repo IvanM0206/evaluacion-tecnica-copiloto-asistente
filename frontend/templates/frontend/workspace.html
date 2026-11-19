@@ -5,6 +5,7 @@
   <li><kbd>E</kbd> Editar transcripción</li>
   <li><kbd>N</kbd> Nueva transcripción</li>
   <li><kbd>A</kbd> Analizar (en "Nueva transcripción")</li>
+  <li><kbd>D</kbd> Derivar Carta de Llamada</li>
 {% endblock %}
 
 {% block content %}
@@ -67,7 +68,7 @@
     </div>
   </section>
 
-  <!-- Derecha: sugerencia del copiloto -->
+  <!-- Derecha: sugerencia, editable por el operador -->
   {% include "frontend/_suggestion.html" %}
 </main>
 {% endblock %}

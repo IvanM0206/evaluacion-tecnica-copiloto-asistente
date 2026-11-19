@@ -1,0 +1,56 @@
+{# Una Carta de Llamada derivada: fila de resumen + detalle completo al desplegarla. Espera `card` (CallCardVM). #}
+<details class="accordion call-card" id="carta-{{ card.id }}">
+  <summary>
+    <span>
+      <span class="call-card-id">#{{ card.id }}</span>
+      <span class="badge {{ card.priority }}">{{ card.priority }}</span>
+      <span class="call-card-title">{{ card.subcategory }}</span>
+    </span>
+    <span class="summary-meta">{{ card.location }} · {{ card.created_at|date:"d/m H:i" }}</span>
+  </summary>
+
+  <div class="call-card-body">
+    <dl class="call-card-facts">
+      <div><dt>Fecha y hora</dt><dd>{{ card.created_at|date:"d/m/Y H:i:s" }}</dd></div>
+      <div><dt>Tipificación</dt><dd>{{ card.category_label }} · {{ card.subcategory }}</dd></div>
+      <div><dt>Ubicación</dt><dd>{{ card.location }}{% if card.neighborhood %} · {{ card.neighborhood }}{% endif %}</dd></div>
+      <div><dt>Copiloto</dt><dd>{{ card.ai_provider|default:"—" }}{% if card.confidence_pct is not None %} · certeza {{ card.confidence_pct }}%{% endif %}</dd></div>
+    </dl>
+
+    <div class="call-card-grid">
+      <section>
+        <h3>Checklist <span class="muted">{{ card.answered_questions|length }}/{{ card.question_count }} respondidas</span></h3>
+        <ul class="plain">
+          {% for q in card.pending_questions %}<li class="pending">○ {{ q }}</li>{% endfor %}
+          {% for q in card.answered_questions %}<li class="done">✓ {{ q }}</li>{% endfor %}
+          {% if not card.question_count %}<li class="muted">Sin preguntas registradas.</li>{% endif %}
+        </ul>
+      </section>
+      <section>
+        <h3>Instrucciones pre-arribo</h3>
+        <ul class="plain">
+          {% for i in card.instructions_given %}<li>{{ i }}</li>{% empty %}<li class="muted">Sin instrucciones registradas.</li>{% endfor %}
+        </ul>
+      </section>
+      <section>
+        <h3>Riesgos</h3>
+        <ul class="plain">
+          {% for r in card.risks %}<li>⚠ {{ r }}</li>{% empty %}<li class="muted">Sin riesgos registrados.</li>{% endfor %}
+        </ul>
+      </section>
+      <section>
+        <h3>Recursos sugeridos <span class="muted">(decide el despachador)</span></h3>
+        <p>{{ card.suggested_resources|default:"—" }}</p>
+        <h3>Notas del operador</h3>
+        <p>{{ card.operator_notes|default:"—"|linebreaksbr }}</p>
+      </section>
+    </div>
+
+    {% if card.transcript %}
+      <details class="call-card-transcript">
+        <summary>Ver transcripción</summary>
+        <p>{{ card.transcript|linebreaksbr }}</p>
+      </details>
+    {% endif %}
+  </div>
+</details>

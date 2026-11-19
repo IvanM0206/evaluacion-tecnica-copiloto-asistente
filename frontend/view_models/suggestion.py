@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from django.http import QueryDict
 from pydantic import BaseModel, Field
 
 from frontend.view_models.checklist import ChecklistItemVM
@@ -45,6 +46,25 @@ class SuggestionVM(BaseModel):
     def location_summary(self) -> str:
         street = " ".join(p for p in (self.street.display_value, self.street_number.display_value) if p)
         return street or "Sin calle detectada"
+
+    def with_operator_edits(self, form: QueryDict) -> SuggestionVM:
+        """Vuelve a aplicar el formulario de derivar sobre la sugerencia, así una derivación
+        fallida conserva las ediciones del operador (prioridad, tipo, ubicación y checklist)."""
+        answered = set(form.getlist("answered"))
+        return self.model_copy(
+            update={
+                "priority": form.get("priority") or self.priority,
+                "category": form.get("category") or self.category,
+                "subcategory": (form.get("subcategory") or "").strip(),
+                "street": self.street.with_value(form.get("street")),
+                "street_number": self.street_number.with_value(form.get("street_number")),
+                "intersection": self.intersection.with_value(form.get("intersection")),
+                "neighborhood": self.neighborhood.with_value(form.get("neighborhood")),
+                "checklist": [
+                    c.model_copy(update={"answered": c.question in answered}) for c in self.checklist
+                ],
+            }
+        )
 
     @property
     def location_fields(self) -> list[tuple[str, str, FieldVM]]:

@@ -1,4 +1,4 @@
-"""frontend/view_models/: helpers de presentación y parseo de la entrada (sin HTTP ni vistas)."""
+"""frontend/view_models/: helpers de presentación y parseo de formularios (sin HTTP ni vistas)."""
 
 from __future__ import annotations
 
@@ -8,9 +8,12 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import QueryDict
 from django.utils.datastructures import MultiValueDict
+from pydantic import ValidationError
 
 from frontend.view_models import (
     MAX_UPLOAD_BYTES,
+    CallCardFormVM,
+    CallCardVM,
     FieldVM,
     SuggestionVM,
     TranscriptInputError,
@@ -117,6 +120,23 @@ class TestFieldVM:
         field = FieldVM(value="Thames", evidence=None, grounded=True)
         assert "None" not in field.hint
 
+    def test_edited_state(self) -> None:
+        field = FieldVM(value="Thames", evidence=None, grounded=False, edited=True)
+        assert (field.state, field.hint) == ("edited", "✎ Editado por el operador")
+
+    def test_with_value_unchanged_keeps_evidence(self) -> None:
+        field = FieldVM(value="Corrientes", evidence="Av. Corrientes 1540", grounded=True, normalized="Av. Corrientes")
+        assert field.with_value(" Av. Corrientes ") is field
+
+    def test_with_value_changed_is_marked_edited(self) -> None:
+        field = FieldVM(value="Corrientes", evidence="Av. Corrientes 1540", grounded=True)
+        edited = field.with_value("Montevideo")
+        assert (edited.value, edited.evidence, edited.grounded, edited.state) == ("Montevideo", None, False, "edited")
+
+    def test_with_value_cleared_is_missing(self) -> None:
+        field = FieldVM(value="Corrientes", evidence="Corrientes 1540", grounded=True)
+        assert field.with_value("  ").state == "missing"
+
 
 def _field(value: str | None, grounded: bool = True, normalized: str | None = None) -> dict[str, Any]:
     return {"value": value, "evidence": value, "grounded": grounded, "normalized": normalized}
@@ -179,3 +199,100 @@ class TestSuggestionVM:
             ("intersection", "Intersección"),
             ("neighborhood", "Barrio"),
         ]
+
+    def test_with_operator_edits(self, suggestion: SuggestionVM) -> None:
+        form = _post(
+            priority="P2",
+            category="INCENDIO_RESCATE",
+            subcategory=" Incendio en cocina ",
+            street="Av. Corrientes",
+            street_number="1550",
+            intersection="",
+            neighborhood="San Nicolás",
+            answered=["¿Hay garrafas?"],
+        )
+        edited = suggestion.with_operator_edits(form)
+
+        assert (edited.priority, edited.subcategory) == ("P2", "Incendio en cocina")
+        assert edited.street.state == "ok", "la calle sin cambios conserva su evidencia"
+        assert edited.street_number.state == "edited" and edited.street_number.value == "1550"
+        assert edited.neighborhood.state == "edited"
+        assert edited.intersection.state == "missing"
+        assert [c.question for c in edited.checklist if c.answered] == ["¿Hay garrafas?"]
+
+
+# ------------------------------------------------------------ carta de llamada
+class TestCallCardVM:
+    def test_location_with_intersection(self) -> None:
+        card = CallCardVM(
+            id=1, created_at="2026-10-14T08:15:22Z", street="Av. Corrientes", street_number="1540",
+            intersection="Montevideo", category="INCENDIO_RESCATE", subcategory="x", priority="P1",
+        )
+        assert card.location == "Av. Corrientes 1540 (Montevideo)"
+
+    def test_location_street_only(self) -> None:
+        card = CallCardVM(
+            id=1, created_at="2026-10-14T08:15:22Z", street="Thames",
+            category="DEFENSA_CIVIL", subcategory="x", priority="P2",
+        )
+        assert card.location == "Thames"
+
+    def test_display_helpers(self) -> None:
+        card = CallCardVM(
+            id=1, created_at="2026-10-14T08:15:22Z", street="Thames", category="SERVICIOS_PUBLICOS",
+            subcategory="x", priority="P1", answered_questions=["a"], pending_questions=["b", "c"], ai_confidence=0.834,
+        )
+        assert card.category_label == "Servicios publicos"
+        assert card.confidence_pct == 83
+        assert card.question_count == 3
+
+    def test_confidence_is_optional(self) -> None:
+        card = CallCardVM(
+            id=1, created_at="2026-10-14T08:15:22Z", street="Thames", category="DEFENSA_CIVIL", subcategory="x", priority="P2",
+        )
+        assert card.confidence_pct is None
+
+
+class TestCallCardFormVM:
+    def test_from_post_parses_the_derive_form(self) -> None:
+        form = _post(
+            transcript=TRANSCRIPT,
+            street="  Av. Corrientes ",
+            street_number="1540",
+            intersection="   ",
+            category="INCENDIO_RESCATE",
+            subcategory=" Incendio en Comercio Gastronómico ",
+            priority="P1",
+            questions=["¿Hay personas atrapadas?", "¿Hay garrafas?", "¿Hay linderos afectados?"],
+            answered=["¿Hay garrafas?"],
+            instructions=["No reingresar al local."],
+            risks=["Grasa inflamada", "Gas"],
+            operator_notes="",
+            ai_confidence="0.83",
+            ai_provider="mock",
+        )
+        card = CallCardFormVM.from_post(form)
+
+        assert card.street == "Av. Corrientes"
+        assert card.street_number == "1540"
+        assert card.intersection is None and card.neighborhood is None and card.operator_notes is None
+        assert card.subcategory == "Incendio en Comercio Gastronómico"
+        assert card.answered_questions == ["¿Hay garrafas?"]
+        assert card.pending_questions == ["¿Hay personas atrapadas?", "¿Hay linderos afectados?"]
+        assert card.instructions_given == ["No reingresar al local."]
+        assert card.risks == ["Grasa inflamada", "Gas"]
+        assert card.ai_confidence == pytest.approx(0.83)
+        assert card.ai_provider == "mock"
+
+    def test_missing_confidence_is_none(self) -> None:
+        card = CallCardFormVM.from_post(
+            _post(transcript=TRANSCRIPT, street="Thames", category="DEFENSA_CIVIL", subcategory="x", priority="P2")
+        )
+        assert card.ai_confidence is None
+        assert card.answered_questions == [] and card.pending_questions == []
+
+    def test_empty_street_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            CallCardFormVM.from_post(
+                _post(transcript=TRANSCRIPT, street="   ", category="DEFENSA_CIVIL", subcategory="x", priority="P2")
+            )

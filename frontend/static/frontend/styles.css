@@ -594,23 +594,39 @@ body.workspace {
   gap: 10px;
 }
 
-.facts {
+.prio-row {
+  display: flex;
+  gap: 8px;
+}
+
+.prio-row .grow {
+  flex: 1;
+}
+
+.prio-row label:first-child {
+  width: 90px;
+  flex: none;
+}
+
+select.P1 {
+  border-color: var(--p1);
+  color: var(--p1);
+  font-weight: 700;
+}
+
+select.P2 {
+  border-color: var(--p2);
+  color: var(--p2);
+}
+
+select.P3 {
+  border-color: var(--p3);
+}
+
+.fields {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin: 0;
-}
-
-.facts dt {
-  font-size: 11px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
-
-.facts dd {
-  margin: 2px 0 0;
-  font-size: 14px;
+  gap: 8px;
 }
 
 .warnings {
@@ -663,18 +679,14 @@ body.workspace {
   opacity: .65;
 }
 
-.checklist li {
+.checklist input {
+  width: auto;
+  margin-top: 3px;
+}
+
+.checklist label {
+  color: inherit;
   font-size: 13px;
-}
-
-.checklist .mark {
-  flex: none;
-  width: 16px;
-  color: var(--muted);
-}
-
-.checklist li.done .mark {
-  color: var(--ok);
 }
 
 .checklist .ev {
@@ -718,6 +730,148 @@ body.workspace {
 
   .panel-body {
     overflow: visible;
+  }
+}
+
+/* ------------------------------------------------------ pantalla de cartas */
+.page-main {
+  flex: 1;
+  width: min(960px, 100%);
+  margin: 0 auto;
+  padding: 24px var(--gutter) 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.page-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.page-head h2 {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.empty-state {
+  align-items: center;
+  text-align: center;
+  padding: 32px;
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.call-card.accordion>summary {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+}
+
+.call-card-id {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.call-card-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.call-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.call-card-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.call-card-facts dt {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.call-card-facts dd {
+  margin: 2px 0 0;
+}
+
+.call-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 20px;
+}
+
+.call-card-grid h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin: 0 0 6px;
+}
+
+.call-card-grid h3 .muted {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+.call-card-grid p {
+  margin: 0 0 10px;
+}
+
+.plain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.plain .pending {
+  color: var(--p2);
+}
+
+.plain .done {
+  color: var(--muted);
+}
+
+.call-card-transcript>summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.call-card-transcript p {
+  margin: 8px 0 0;
+  padding: 10px;
+  background: var(--input);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+@media (max-width: 700px) {
+  .call-card-grid {
+    grid-template-columns: 1fr;
   }
 }
 

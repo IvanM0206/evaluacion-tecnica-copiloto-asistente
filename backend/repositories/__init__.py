@@ -7,6 +7,7 @@ Importar desde `backend.repositories` (este paquete re-exporta todos los reposit
 
 from __future__ import annotations
 
+from backend.repositories.call_card import CallCardRepository
 from backend.repositories.incident import IncidentRepository
 
-__all__ = ["IncidentRepository"]
+__all__ = ["CallCardRepository", "IncidentRepository"]

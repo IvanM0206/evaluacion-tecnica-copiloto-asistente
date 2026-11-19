@@ -1,0 +1,32 @@
+{% extends "frontend/base.html" %}
+
+{% block body_class %}page{% endblock %}
+
+{% block content %}
+<main class="page-main">
+  <div class="page-head">
+    <div>
+      <h2>Cartas derivadas</h2>
+      <p class="muted">Cartas de Llamada validadas por el operador y enviadas al despacho, de la más reciente a la más antigua.</p>
+    </div>
+    <div class="row">
+      {% if has_analysis %}<a class="btn btn-ghost btn-sm" href="{% url 'frontend:workspace' %}">Volver al análisis</a>{% endif %}
+      <a class="btn btn-primary btn-sm" href="{% url 'frontend:index' %}" accesskey="n">+ Nueva transcripción</a>
+    </div>
+  </div>
+
+  {% if cards %}
+    <p class="muted">{{ cards|length }} carta{{ cards|length|pluralize }}</p>
+    <div class="card-list">
+      {% for card in cards %}{% include "frontend/_call_card.html" %}{% endfor %}
+    </div>
+  {% else %}
+    <section class="card empty-state">
+      <p>Todavía no se derivaron cartas.</p>
+      <p class="muted">Cuando el operador deriva una Carta de Llamada desde el panel, aparece acá.</p>
+    </section>
+  {% endif %}
+</main>
+{% endblock %}
+
+{% block shortcuts %}<li><kbd>N</kbd> Nueva transcripción</li>{% endblock %}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 import pytest
@@ -10,7 +11,7 @@ from django.test import Client
 
 from frontend import views
 from frontend.client import ApiError
-from frontend.view_models import HealthVM, SampleVM, SuggestionVM
+from frontend.view_models import CallCardFormVM, CallCardVM, HealthVM, SampleVM, SuggestionVM
 
 TRANSCRIPT = (
     "Operador: Emergencias, ¿dónde es? Llamante: En Thames 1900, entre Nicaragua y Costa Rica. "
@@ -51,8 +52,12 @@ class FakeApiClient:
     """Reemplaza a frontend.client.ApiClient; registra lo que envían las vistas."""
 
     analyze_calls: list[str] = []
+    derived: list[CallCardFormVM] = []
+    stored_cards: list[CallCardVM] = []
     fail_analyze = False
     fail_health = False
+    fail_derive = False
+    fail_cards = False
 
     def health(self) -> HealthVM:
         if self.fail_health:
@@ -70,12 +75,30 @@ class FakeApiClient:
         FakeApiClient.analyze_calls.append(transcript)
         return _suggestion()
 
+    def cards(self) -> list[CallCardVM]:
+        if self.fail_cards:
+            raise ApiError("La API respondió 500")
+        return FakeApiClient.stored_cards
+
+    def derive_card(self, card: CallCardFormVM) -> CallCardVM:
+        if self.fail_derive:
+            raise ApiError("La API respondió 500")
+        FakeApiClient.derived.append(card)
+        return CallCardVM(
+            id=7, created_at=datetime(2026, 11, 18, 10, 0), street=card.street,
+            category=card.category, subcategory=card.subcategory, priority=card.priority,
+        )
+
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch, db: None) -> Client:
     FakeApiClient.analyze_calls = []
+    FakeApiClient.derived = []
+    FakeApiClient.stored_cards = []
     FakeApiClient.fail_analyze = False
     FakeApiClient.fail_health = False
+    FakeApiClient.fail_derive = False
+    FakeApiClient.fail_cards = False
     monkeypatch.setattr(views, "ApiClient", FakeApiClient)
     return Client()
 
@@ -83,6 +106,16 @@ def client(monkeypatch: pytest.MonkeyPatch, db: None) -> Client:
 def _analyze(client: Client, **data: Any) -> None:
     response = client.post("/analizar/", {"origin": "landing", **data})
     assert response.status_code == 302 and response["Location"] == "/cargando/"
+
+
+def _derive_form(**overrides: Any) -> dict[str, Any]:
+    form: dict[str, Any] = {
+        "transcript": TRANSCRIPT, "priority": "P1", "category": "SERVICIOS_PUBLICOS",
+        "subcategory": "Fuga de gas", "street": "Thames", "street_number": "1900",
+        "intersection": "Nicaragua y Costa Rica", "neighborhood": "", "questions": QUESTIONS,
+        "answered": [QUESTIONS[1]], "ai_confidence": "0.9", "ai_provider": "mock",
+    }
+    return {**form, **overrides}
 
 
 class TestLanding:
@@ -170,16 +203,17 @@ class TestAnalyzeFlow:
 
 
 class TestWorkspace:
-    def test_renders_the_suggestion_read_only(self, client: Client) -> None:
+    def test_renders_the_suggestion_as_an_editable_derive_form(self, client: Client) -> None:
         _analyze(client, transcript=TRANSCRIPT)
         html = client.get("/analisis/").content.decode()
-        assert '<span class="badge P1">P1</span>' in html
-        assert "SERVICIOS_PUBLICOS" in html and "Fuga de gas" in html
-        assert "Thames" in html and "1900" in html
+        assert 'action="/derivar/"' in html
+        assert '<select name="priority" class="P1">' in html and "<option selected>P1</option>" in html
+        assert "<option selected>SERVICIOS_PUBLICOS</option>" in html
+        assert 'name="street" value="Thames"' in html and 'name="street_number" value="1900"' in html
         assert "No mencionado: preguntar" in html  # barrio no mencionado
-        assert "No accione interruptores." in html
+        assert 'name="instructions" value="No accione interruptores."' in html
         assert "1/2 respondidas" in html
-        assert "<form" not in html.split("Sugerencia del copiloto")[1], "el panel de sugerencia es de solo lectura"
+        assert "Derivar Carta de Llamada" in html
 
     def test_pending_questions_are_listed_first(self, client: Client) -> None:
         _analyze(client, transcript=TRANSCRIPT)
@@ -188,6 +222,16 @@ class TestWorkspace:
 
 
 class TestHeader:
+    @pytest.mark.parametrize("url", ["/", "/cartas/"])
+    def test_nav_links_to_panel_and_cards(self, client: Client, url: str) -> None:
+        html = client.get(url).content.decode()
+        assert 'class="topnav"' in html
+        assert 'href="/cartas/"' in html and ">Cartas derivadas</a>" in html
+
+    def test_active_item_follows_the_screen(self, client: Client) -> None:
+        assert 'href="/" class="active"' in client.get("/").content.decode()
+        assert 'href="/cartas/" class="active"' in client.get("/cartas/").content.decode()
+
     def test_shows_provider_status(self, client: Client) -> None:
         assert "Proveedor: mock · 30 casos" in client.get("/").content.decode()
 
@@ -196,3 +240,85 @@ class TestHeader:
         response = client.get("/")
         assert response.status_code == 200
         assert "No se pudo contactar la API" in response.content.decode()
+
+
+class TestDerive:
+    def test_success_clears_analysis_and_returns_home(self, client: Client) -> None:
+        _analyze(client, transcript=TRANSCRIPT)
+        client.get("/analisis/")
+        response = client.post("/derivar/", _derive_form(), follow=True)
+        assert "Carta #7 derivada al despacho." in response.content.decode()
+        card = FakeApiClient.derived[0]
+        assert card.answered_questions == [QUESTIONS[1]]
+        assert card.pending_questions == [QUESTIONS[0]]
+        assert client.get("/analisis/")["Location"] == "/"
+
+    def test_missing_street_keeps_operator_edits(self, client: Client) -> None:
+        _analyze(client, transcript=TRANSCRIPT)
+        client.get("/analisis/")
+        form = _derive_form(street="", priority="P2", street_number="1950", answered=QUESTIONS,
+                            operator_notes="Llamante muy nervioso")
+        response = client.post("/derivar/", form)
+        html = response.content.decode()
+        assert response.status_code == 422
+        assert "La calle es obligatoria" in html
+        assert "<option selected>P2</option>" in html
+        assert 'value="1950"' in html and "Editado por el operador" in html
+        assert "Llamante muy nervioso</textarea>" in html
+        assert html.count("checked />") >= len(QUESTIONS)
+        assert FakeApiClient.derived == []
+
+    def test_api_error_keeps_operator_edits(self, client: Client) -> None:
+        _analyze(client, transcript=TRANSCRIPT)
+        client.get("/analisis/")
+        FakeApiClient.fail_derive = True
+        response = client.post("/derivar/", _derive_form(subcategory="Escape de gas"))
+        assert response.status_code == 422
+        assert "No se pudo derivar" in response.content.decode()
+        assert 'value="Escape de gas"' in response.content.decode()
+
+    def test_without_analysis_redirects_home(self, client: Client) -> None:
+        assert client.post("/derivar/", _derive_form())["Location"] == "/"
+
+    def test_confidence_is_not_localized_in_hidden_input(self, client: Client) -> None:
+        # Regresión: es-ar renderizaba "0,9" y float() fallaba al derivar.
+        _analyze(client, transcript=TRANSCRIPT)
+        assert 'name="ai_confidence" value="0.9"' in client.get("/analisis/").content.decode()
+
+
+def _stored_card() -> CallCardVM:
+    return CallCardVM(
+        id=3, created_at=datetime(2026, 11, 18, 10, 5), transcript=TRANSCRIPT, street="Thames", street_number="1900",
+        intersection="Nicaragua y Costa Rica", neighborhood="Palermo", category="SERVICIOS_PUBLICOS",
+        subcategory="Fuga de gas", priority="P1", answered_questions=[QUESTIONS[1]],
+        pending_questions=[QUESTIONS[0]], instructions_given=["No accione interruptores."], risks=["Explosión"],
+        suggested_resources="Bomberos", operator_notes="Llamante nervioso", ai_confidence=0.9, ai_provider="mock",
+    )
+
+
+class TestCardsPage:
+    def test_lists_cards_with_full_detail(self, client: Client) -> None:
+        FakeApiClient.stored_cards = [_stored_card()]
+        html = client.get("/cartas/").content.decode()
+        assert 'id="carta-3"' in html and '<span class="badge P1">P1</span>' in html
+        assert "Thames 1900 (Nicaragua y Costa Rica)" in html and "Palermo" in html
+        assert "1/2 respondidas" in html
+        assert f"○ {QUESTIONS[0]}" in html and f"✓ {QUESTIONS[1]}" in html
+        assert "No accione interruptores." in html and "Explosión" in html
+        assert "Llamante nervioso" in html and "certeza 90%" in html
+        assert "Ver transcripción" in html
+
+    def test_empty_state(self, client: Client) -> None:
+        assert "Todavía no se derivaron cartas." in client.get("/cartas/").content.decode()
+
+    def test_api_error_is_shown(self, client: Client) -> None:
+        FakeApiClient.fail_cards = True
+        response = client.get("/cartas/")
+        assert response.status_code == 200
+        assert "No se pudieron cargar las cartas" in response.content.decode()
+
+    def test_offers_going_back_to_the_current_analysis(self, client: Client) -> None:
+        assert "Volver al análisis" not in client.get("/cartas/").content.decode()
+        _analyze(client, transcript=TRANSCRIPT)
+        client.get("/analisis/")
+        assert "Volver al análisis" in client.get("/cartas/").content.decode()

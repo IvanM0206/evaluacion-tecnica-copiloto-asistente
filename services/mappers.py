@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from backend.choices import IncidentSource
+from backend.models import CallCard as CallCardRow
 from backend.models import Incident
-from services.models import Category, IncidentCreate, Priority, ReferenceCase
+from services.models import CallCard, Category, IncidentCreate, Priority, ReferenceCase
 
 
 def incident_to_case(row: Incident) -> ReferenceCase:
@@ -38,3 +39,26 @@ def incident_create_to_row(incident: IncidentCreate) -> dict[str, Any]:
         "called_at": None,
         **data,
     }
+
+
+def call_card_row_to_model(row: CallCardRow) -> CallCard:
+    return CallCard(
+        id=row.pk,
+        created_at=row.created_at,
+        transcript=row.transcript,
+        street=row.street,
+        street_number=row.street_number or None,
+        intersection=row.intersection or None,
+        neighborhood=row.neighborhood or None,
+        category=Category(row.category),
+        subcategory=row.subcategory,
+        priority=Priority(row.priority),
+        answered_questions=list(row.answered_questions),
+        pending_questions=list(row.pending_questions),
+        instructions_given=list(row.instructions_given),
+        risks=list(row.risks),
+        suggested_resources=row.suggested_resources or None,
+        operator_notes=row.operator_notes or None,
+        ai_confidence=row.ai_confidence,
+        ai_provider=row.ai_provider or None,
+    )
