@@ -1,1 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Entorno virtual
+.venv/
+
+# Secretos y configuración local
 .env
+
+# Base de datos local y archivos estáticos generados
+data/*.sqlite3
+staticfiles/
+
+# Tests
+.pytest_cache/
+
+# Enunciado del challenge (no se publica)
+*.pdf
