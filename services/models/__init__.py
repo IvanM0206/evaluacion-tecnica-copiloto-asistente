@@ -13,6 +13,7 @@ from __future__ import annotations
 from backend.choices import Category, Priority
 from services.models.catalog import IncidentCreate, ReferenceCase, SampleTranscript
 from services.models.extraction import ChecklistAnswer, ExtractedField, RawExtraction
+from services.models.health import HealthStatus
 from services.models.suggestion import (
     AnalyzeRequest,
     ChecklistItem,
@@ -29,6 +30,7 @@ __all__ = [
     "CopilotSuggestion",
     "ExtractedField",
     "GroundedField",
+    "HealthStatus",
     "IncidentCreate",
     "Priority",
     "RawExtraction",
