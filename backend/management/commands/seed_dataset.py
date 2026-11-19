@@ -1,6 +1,6 @@
-"""Load the challenge CSV (or any CSV with the same columns) into the Incident table.
+"""Carga el CSV del challenge (o cualquier CSV con las mismas columnas) en la tabla Incident.
 
-    python manage.py seed_dataset                      # provided dataset
+    python manage.py seed_dataset                      # dataset provisto
     python manage.py seed_dataset otro.csv --source SYNTHETIC
 """
 
@@ -35,7 +35,7 @@ def csv_to_rows(path: Path, source: IncidentSource) -> list[dict[str, Any]]:
     with path.open(encoding="utf-8", newline="") as fh:
         for r in csv.DictReader(fh):
             if not r.get("id_registro"):
-                continue  # trailing empty lines
+                continue  # líneas vacías al final
             rows.append(
                 {
                     "external_id": r["id_registro"],

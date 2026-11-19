@@ -1,8 +1,8 @@
-"""Data access, one module per aggregate. The only entry point from the services layer into the database.
+"""Acceso a datos, un módulo por agregado. El único punto de entrada de la capa services a la base de datos.
 
-Repositories return ORM instances; mapping them to service models is the
-services layer's job (backend must not import upper layers).
-Import from `backend.repositories` (this package re-exports every repository).
+Los repositorios devuelven instancias del ORM; mapearlas a modelos de services es
+tarea de la capa services (backend no debe importar capas superiores).
+Importar desde `backend.repositories` (este paquete re-exporta todos los repositorios).
 """
 
 from __future__ import annotations

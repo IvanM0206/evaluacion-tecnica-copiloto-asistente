@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Django's command-line utility."""
+"""Utilidad de línea de comandos de Django."""
 
 import os
 import sys

@@ -1,6 +1,6 @@
-"""ORM tables, one module per model. Only the backend layer touches these; services go through repositories.
+"""Tablas del ORM, un módulo por modelo. Solo la capa backend las toca; services pasa por los repositorios.
 
-Import from `backend.models` (this package re-exports every model).
+Importar desde `backend.models` (este paquete re-exporta todos los modelos).
 """
 
 from __future__ import annotations

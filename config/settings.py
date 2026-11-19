@@ -10,7 +10,7 @@ def _env_bool(name: str, default: bool) -> bool:
     return os.getenv(name, str(default)).strip().lower() in {"1", "true", "yes", "on"}
 
 
-# Prototype default only; set DJANGO_SECRET_KEY outside local development.
+# Valor por defecto solo para el prototipo; definir DJANGO_SECRET_KEY fuera de desarrollo local.
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-insecure-change-me")
 DEBUG = _env_bool("DJANGO_DEBUG", True)
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0").split(",")
@@ -72,20 +72,20 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # --------------------------------------------------------------------------- #
-# Copilot settings
+# Configuración del copiloto
 # --------------------------------------------------------------------------- #
 DATASET_PATH = Path(os.getenv("DATASET_PATH", DATA_DIR / "dataset_challenge_soflex.csv"))
 
-# Dual provider: "anthropic" only if requested (or unset) AND a key is present; else "mock".
+# Dual provider: "anthropic" solo si se pide (o no se define) Y hay una key; si no, "mock".
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "").strip().lower()
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-opus-5-5")
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api")
 API_TIMEOUT_SECONDS = float(os.getenv("API_TIMEOUT_SECONDS", "45"))
 
-# Writes to the reference catalog (POST /api/catalog/incidents) feed the protocol read to
-# real callers and the LLM few-shot prompt, so they need this token in `X-Catalog-Token`.
-# Unset (default) = catalog writes disabled.
+# Las escrituras al catálogo de referencia (POST /api/catalog/incidents) alimentan el protocolo
+# que se lee a llamantes reales y el prompt few-shot del LLM, así que requieren este token en
+# `X-Catalog-Token`. Sin definir (default) = escrituras al catálogo deshabilitadas.
 CATALOG_API_TOKEN = os.getenv("CATALOG_API_TOKEN", "")
 
 LOGGING = {

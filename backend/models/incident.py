@@ -6,10 +6,10 @@ from backend.choices import Category, IncidentSource, Priority
 
 
 class Incident(models.Model):
-    """A documented call: the provided CSV rows plus any future synthetic data.
+    """Una llamada documentada: las filas del CSV provisto más futuros datos sintéticos.
 
-    Used by the services layer as the reference catalog (retrieval, few-shot,
-    protocol questions, pre-arrival instructions).
+    La capa services la usa como catálogo de referencia (retrieval, few-shot,
+    preguntas de protocolo, instrucciones pre-arribo).
     """
 
     external_id = models.CharField(max_length=64, unique=True)  # id_registro

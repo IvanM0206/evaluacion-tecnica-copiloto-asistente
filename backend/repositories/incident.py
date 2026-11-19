@@ -18,7 +18,7 @@ class IncidentRepository:
         return Incident.objects.filter(external_id=external_id).first()
 
     def upsert_many(self, rows: Iterable[dict[str, Any]]) -> int:
-        """Idempotent load keyed by `external_id`. Returns how many rows were written."""
+        """Carga idempotente por `external_id`. Devuelve cuántas filas se escribieron."""
         count = 0
         for row in rows:
             data = dict(row)

@@ -18,7 +18,7 @@ class Category(models.TextChoices):
 
 
 class IncidentSource(models.TextChoices):
-    """Where a stored incident comes from."""
+    """De dónde viene un incidente guardado."""
 
     DATASET = "DATASET", "Dataset provisto (CSV)"
     SYNTHETIC = "SYNTHETIC", "Sintético / hipotético"
