@@ -155,3 +155,36 @@ def test_value_found_in_transcript_without_evidence_uses_itself_as_evidence(fake
     suggestion = CopilotService(fake_catalog, TamperingProvider(no_evidence)).analyze(transcript)
     assert suggestion.street_number.grounded
     assert suggestion.street_number.evidence == "1234"
+
+
+# ------------------------------------------------ anchor de respaldo (todo el catálogo)
+def test_anchor_falls_back_to_the_catalog_only_when_similar_enough(reference_cases: list[ReferenceCase]) -> None:
+    from services.providers.base import MIN_SIMILARITY
+
+    med = next(c for c in reference_cases if c.category == "EMERGENCIA_MEDICA")
+    fire = next(c for c in reference_cases if c.category == "INCENDIO_RESCATE")
+    ctx = ExtractionContext(
+        similar_cases=[(fire, 0.4)], candidate_questions=[],
+        category_anchors={med.category: (med, MIN_SIMILARITY + 0.01)},
+    )
+    assert ctx.anchor_for(fire.category) == (fire, 0.4), "gana el top-k"
+    assert ctx.anchor_for(med.category) == (med, MIN_SIMILARITY + 0.01), "respaldo en todo el catálogo"
+
+    weak = ExtractionContext(similar_cases=[], candidate_questions=[], category_anchors={med.category: (med, 0.01)})
+    assert weak.anchor_for(med.category) is None, "un caso apenas relacionado traería el protocolo equivocado"
+
+
+def test_analysis_passes_the_best_case_of_every_category(fake_catalog: FakeCatalog, fire_transcript: str) -> None:
+    seen: list[ExtractionContext] = []
+
+    class Spy(MockProvider):
+        def extract(self, transcript: str, ctx: ExtractionContext) -> RawExtraction:
+            seen.append(ctx)
+            return super().extract(transcript, ctx)
+
+    CopilotService(fake_catalog, Spy()).analyze(fire_transcript)
+    anchors = seen[0].category_anchors
+    assert set(anchors) == {c.category for c in fake_catalog.cases()}
+    assert all(case.category == category for category, (case, _) in anchors.items())
+    assert FIRE_ID not in {case.id for case, _ in anchors.values()}, "leave-one-out también en el respaldo"
+

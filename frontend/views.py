@@ -34,8 +34,9 @@ from frontend.view_models import (
     transcript_from_submission,
 )
 
-# Ejemplo ofrecido como "plantilla de ejemplo": una fuga de gas P1 con calle, altura y esquinas.
-DEMO_SAMPLE_ID = "SFX-REC-2026-012"
+# Ejemplo ofrecido como "plantilla de ejemplo": una fractura expuesta P1 con calle, altura y esquinas.
+# Con leave-one-out toma el protocolo de traumatismo por caída, que es coherente.
+DEMO_SAMPLE_ID = "SFX-REC-2026-023"
 
 _ANALYSIS_KEY = "copilot_analysis"  # análisis actual: {"transcript": str, "suggestion": dict}
 _PENDING_KEY = "copilot_pending"  # transcripción enviada y todavía sin analizar

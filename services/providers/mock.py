@@ -75,8 +75,8 @@ class MockProvider:
         neighborhood = self._neighborhood(caller)
 
         category = self._classify(transcript, ctx)
-        same_cat = [c for c, _ in ctx.similar_cases if c.category == category]
-        top: ReferenceCase | None = same_cat[0] if same_cat else None
+        anchor = ctx.anchor_for(category)
+        top: ReferenceCase | None = anchor[0] if anchor else None
         priority = top.priority if top else Priority.P3
         justification = (
             f"Prioridad del caso de referencia más similar ({top.id})." if top else "Sin referencia."

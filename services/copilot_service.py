@@ -5,6 +5,7 @@ import re
 
 from services.catalog_service import CatalogService
 from services.models import (
+    Category,
     ChecklistItem,
     CopilotSuggestion,
     ExtractedField,
@@ -17,10 +18,10 @@ from services.nlp.normalization import StreetGazetteer, canonical_street
 from services.nlp.retrieval import CaseRetriever
 from services.nlp.text import fold, is_grounded
 from services.providers import ExtractionContext, ExtractionProvider, MockProvider, ProviderError
+from services.providers.base import MIN_SIMILARITY
 
 log = logging.getLogger(__name__)
 
-MIN_SIMILARITY = 0.2  # por debajo de esto el tipo de incidente es una suposición
 MAX_QUESTIONS = 8
 
 
@@ -62,11 +63,16 @@ class CopilotService:
 
     # ----------------------------------------------------------------- público
     def analyze(self, transcript: str) -> CopilotSuggestion:
-        similar = self.retriever.search(transcript, k=5)
+        ranking = self.retriever.search(transcript, k=len(self.catalog))
+        similar = ranking[:5]
+        anchors: dict[Category, tuple[ReferenceCase, float]] = {}
+        for case, score in ranking:  # el ranking está ordenado: gana el primer caso de cada categoría
+            anchors.setdefault(case.category, (case, score))
         ctx = ExtractionContext(
             similar_cases=similar,
             candidate_questions=self._candidate_questions(similar),
             known_streets=[c.street for c in self.catalog],
+            category_anchors=anchors,
         )
 
         warnings: list[str] = []
@@ -139,9 +145,7 @@ class CopilotService:
         # Anchor = caso de referencia más similar de la categoría *final*. De él salen
         # las preguntas de protocolo, las instrucciones pre-arribo y los recursos, así
         # el panel nunca mezcla protocolos de distintos tipos de incidente.
-        anchor, anchor_score = next(
-            ((c, sc) for c, sc in ctx.similar_cases if c.category == raw.category), (None, 0.0)
-        )
+        anchor, anchor_score = ctx.anchor_for(raw.category) or (None, 0.0)
         answers = list(raw.checklist)
         questions = ctx.candidate_questions
         if anchor and not {fold(q) for q in self._questions_of([anchor])} & {fold(q) for q in questions}:
