@@ -19,7 +19,7 @@ class PromptSection:
 @dataclass(frozen=True)
 class PromptTemplate:
     """Un system prompt formado por secciones ordenadas. Subir `version` cuando cambia el texto,
-    así las corridas de evaluación se pueden comparar contra el prompt que las produjo."""
+    así se sabe qué versión del prompt produjo cada resultado."""
 
     name: str
     version: str

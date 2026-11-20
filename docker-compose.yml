@@ -1,0 +1,17 @@
+services:
+  copiloto:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-5-5}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+      CATALOG_API_TOKEN: ${CATALOG_API_TOKEN:-}
+      DB_PATH: /srv/var/copilot.sqlite3
+    volumes:
+      - copiloto-db:/srv/var
+
+volumes:
+  copiloto-db:
