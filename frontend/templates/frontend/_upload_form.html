@@ -1,4 +1,20 @@
-{# Entrada de la transcripción: escribirla, subir un .txt o cargar el ejemplo. Parámetros: origin, prefix, value, sample_url #}
+{% comment %}
+  Entrada de la transcripción: escribirla, subir un .txt, elegir una llamada del dataset o cargar el ejemplo.
+  Parámetros: origin, prefix, value, sample_url, picker_action. Contexto: samples, selected_sample, health.
+{% endcomment %}
+{% if samples %}
+  {# Form GET (los forms no se pueden anidar): carga la llamada elegida en el textarea de abajo. #}
+  <form method="get" action="{{ picker_action }}" class="sample-picker">
+    <label for="{{ prefix }}-sample">Elegir una llamada del dataset</label>
+    <div class="row">
+      <select id="{{ prefix }}-sample" name="sample" class="grow">
+        {% for s in samples %}<option value="{{ s.id }}" {% if s.id == selected_sample %}selected{% endif %}>{{ s.label }}</option>{% endfor %}
+      </select>
+      <button class="btn btn-ghost">Cargar</button>
+    </div>
+  </form>
+  <div class="divider" aria-hidden="true"><span>o</span></div>
+{% endif %}
 <form method="post" action="{% url 'frontend:analyze' %}" enctype="multipart/form-data" class="upload stack">
   {% csrf_token %}
   <input type="hidden" name="origin" value="{{ origin }}" />
@@ -15,6 +31,12 @@
 
   <div class="row between actions">
     <a class="btn btn-ghost" href="{{ sample_url }}">Usar plantilla de ejemplo</a>
-    <button class="btn btn-primary" accesskey="a">Analizar</button>
+    <div class="row">
+      {% if health and not health.llm_active %}
+        <button class="btn btn-ghost" name="simulate_llm" value="1"
+                title="Sin LLM configurado: agrega respuestas de ejemplo fijas para ver cómo se vería el panel con un modelo real">Analizar simulando LLM</button>
+      {% endif %}
+      <button class="btn btn-primary" accesskey="a">Analizar</button>
+    </div>
   </div>
 </form>

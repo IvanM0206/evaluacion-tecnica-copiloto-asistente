@@ -9,4 +9,4 @@ router = Router()
 
 @router.post("/analyze", response=CopilotSuggestion)
 def analyze(request: HttpRequest, payload: AnalyzeRequest) -> CopilotSuggestion:
-    return container.copilot_service().analyze(payload.transcript)
+    return container.copilot_service().analyze(payload.transcript, simulate_llm=payload.simulate_llm)

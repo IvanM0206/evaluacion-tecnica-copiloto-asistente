@@ -37,8 +37,9 @@ class ApiClient:
     def sample(self, sample_id: str) -> SampleVM:
         return self._get(f"/catalog/samples/{quote(sample_id, safe='')}", SampleVM)
 
-    def analyze(self, transcript: str) -> SuggestionVM:
-        return self._send("POST", "/copilot/analyze", {"transcript": transcript}, SuggestionVM)
+    def analyze(self, transcript: str, simulate_llm: bool = False) -> SuggestionVM:
+        body = {"transcript": transcript, "simulate_llm": simulate_llm}
+        return self._send("POST", "/copilot/analyze", body, SuggestionVM)
 
     def derive_card(self, card: CallCardFormVM) -> CallCardVM:
         return self._send("POST", "/cards", card.model_dump(), CallCardVM)

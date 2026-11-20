@@ -21,8 +21,8 @@
       <section>
         <h3>Checklist <span class="muted">{{ card.answered_questions|length }}/{{ card.question_count }} respondidas</span></h3>
         <ul class="plain">
-          {% for q in card.pending_questions %}<li class="pending">○ {{ q }}</li>{% endfor %}
-          {% for q in card.answered_questions %}<li class="done">✓ {{ q }}</li>{% endfor %}
+          {% for q in card.pending_questions %}<li class="pending">○ {{ q }}{% if q in card.ai_suggested_questions %} <span class="ai-tag">Sugerida por IA</span>{% endif %}</li>{% endfor %}
+          {% for q in card.answered_questions %}<li class="done">✓ {{ q }}{% if q in card.ai_suggested_questions %} <span class="ai-tag">Sugerida por IA</span>{% endif %}</li>{% endfor %}
           {% if not card.question_count %}<li class="muted">Sin preguntas registradas.</li>{% endif %}
         </ul>
       </section>

@@ -28,6 +28,7 @@ class SuggestionVM(BaseModel):
     confidence: float
     warnings: list[str] = Field(default_factory=list)
     similar_cases: list[SimilarCaseVM] = Field(default_factory=list)
+    simulated: bool = False
 
     @property
     def confidence_pct(self) -> int:
@@ -37,6 +38,10 @@ class SuggestionVM(BaseModel):
     def checklist_pending_first(self) -> list[ChecklistItemVM]:
         """Primero las pendientes: es lo próximo que tiene que preguntar el operador."""
         return sorted(self.checklist, key=lambda c: c.answered)
+
+    @property
+    def has_ai_questions(self) -> bool:
+        return any(c.suggested_by_ai for c in self.checklist)
 
     @property
     def answered_count(self) -> int:

@@ -55,6 +55,7 @@ def call_card_row_to_model(row: CallCardRow) -> CallCard:
         priority=Priority(row.priority),
         answered_questions=list(row.answered_questions),
         pending_questions=list(row.pending_questions),
+        ai_suggested_questions=list(row.ai_suggested_questions),
         instructions_given=list(row.instructions_given),
         risks=list(row.risks),
         suggested_resources=row.suggested_resources or None,

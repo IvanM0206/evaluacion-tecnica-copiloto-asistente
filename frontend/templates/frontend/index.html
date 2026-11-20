@@ -12,7 +12,7 @@
     <p class="muted">El copiloto extrae la ubicación, tipifica el hecho, sugiere la prioridad y arma el checklist de protocolo.</p>
     {% url 'frontend:index' as index_url %}
     {% with sample_url=index_url|add:"?sample="|add:demo_sample_id %}
-      {% include "frontend/_upload_form.html" with origin="landing" prefix="landing" value=transcript %}
+      {% include "frontend/_upload_form.html" with origin="landing" prefix="landing" value=transcript picker_action=index_url %}
     {% endwith %}
   </section>
 </main>

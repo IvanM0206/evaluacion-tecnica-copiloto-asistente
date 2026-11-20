@@ -22,6 +22,9 @@ class CallCardCreate(BaseModel):
     priority: Priority
     answered_questions: list[str] = Field(default_factory=list)
     pending_questions: list[str] = Field(default_factory=list)
+    ai_suggested_questions: list[str] = Field(
+        default_factory=list, description="Preguntas (respondidas o pendientes) propuestas por el LLM, no del protocolo."
+    )
     instructions_given: list[str] = Field(default_factory=list)
     risks: list[str] = Field(default_factory=list)
     suggested_resources: str | None = None

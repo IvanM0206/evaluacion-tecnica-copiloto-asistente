@@ -20,7 +20,7 @@ TRANSCRIPT = (
 QUESTIONS = ["¿Hay personas descompuestas?", "¿Se escucha el escape de gas?"]
 
 
-def _suggestion() -> SuggestionVM:
+def _suggestion(*extra_checklist: dict[str, Any]) -> SuggestionVM:
     def field(value: str | None) -> dict[str, Any]:
         return {"value": value, "evidence": value, "grounded": value is not None}
 
@@ -38,6 +38,7 @@ def _suggestion() -> SuggestionVM:
             "checklist": [
                 {"question": QUESTIONS[0], "answered": False},
                 {"question": QUESTIONS[1], "answered": True, "answer": "Sí", "evidence": "olor a gas", "grounded": True},
+                *extra_checklist,
             ],
             "pre_arrival_instructions": ["No accione interruptores.", "Abra puertas y ventanas."],
             "risks": ["Explosión"],
@@ -52,6 +53,8 @@ class FakeApiClient:
     """Reemplaza a frontend.client.ApiClient; registra lo que envían las vistas."""
 
     analyze_calls: list[str] = []
+    simulate_flags: list[bool] = []
+    provider = "mock"
     derived: list[CallCardFormVM] = []
     stored_cards: list[CallCardVM] = []
     fail_analyze = False
@@ -62,18 +65,23 @@ class FakeApiClient:
     def health(self) -> HealthVM:
         if self.fail_health:
             raise ApiError("No se pudo contactar la API (ConnectError)")
-        return HealthVM(status="ok", provider="mock", catalog_size=30)
+        return HealthVM(status="ok", provider=FakeApiClient.provider, catalog_size=30)
+
+    def samples(self) -> list[SampleVM]:
+        return [SampleVM(id=views.DEMO_SAMPLE_ID, label="demo · Fractura", transcript=TRANSCRIPT),
+                SampleVM(id="SFX-REC-2026-001", label="SFX-REC-2026-001 · Incendio", transcript=TRANSCRIPT)]
 
     def sample(self, sample_id: str) -> SampleVM:
         if sample_id != views.DEMO_SAMPLE_ID:
             raise ApiError("La API respondió 404")
         return SampleVM(id=sample_id, label="demo", transcript=TRANSCRIPT)
 
-    def analyze(self, transcript: str) -> SuggestionVM:
+    def analyze(self, transcript: str, simulate_llm: bool = False) -> SuggestionVM:
         if self.fail_analyze:
             raise ApiError("No se pudo contactar la API")
         FakeApiClient.analyze_calls.append(transcript)
-        return _suggestion()
+        FakeApiClient.simulate_flags.append(simulate_llm)
+        return _suggestion().model_copy(update={"simulated": simulate_llm})
 
     def cards(self) -> list[CallCardVM]:
         if self.fail_cards:
@@ -93,6 +101,8 @@ class FakeApiClient:
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch, db: None) -> Client:
     FakeApiClient.analyze_calls = []
+    FakeApiClient.simulate_flags = []
+    FakeApiClient.provider = "mock"
     FakeApiClient.derived = []
     FakeApiClient.stored_cards = []
     FakeApiClient.fail_analyze = False
@@ -233,7 +243,7 @@ class TestHeader:
         assert 'href="/cartas/" class="active"' in client.get("/cartas/").content.decode()
 
     def test_shows_provider_status(self, client: Client) -> None:
-        assert "Proveedor: mock · 30 casos" in client.get("/").content.decode()
+        assert '<span class="dot"></span>mock · 30 casos' in client.get("/").content.decode()
 
     def test_api_down_is_reported_without_breaking_the_page(self, client: Client) -> None:
         FakeApiClient.fail_health = True
@@ -322,3 +332,98 @@ class TestCardsPage:
         _analyze(client, transcript=TRANSCRIPT)
         client.get("/analisis/")
         assert "Volver al análisis" in client.get("/cartas/").content.decode()
+
+
+class TestAiSuggestedQuestionsInPanel:
+    AI_QUESTION = "¿Hay chicos en la casa?"
+
+    def test_ai_questions_are_marked_and_explained(self, client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
+        ai_item = {"question": self.AI_QUESTION, "answered": False, "source": "ai"}
+        monkeypatch.setattr(FakeApiClient, "analyze", lambda self, t, simulate_llm=False: _suggestion(ai_item))
+        _analyze(client, transcript=TRANSCRIPT)
+        html = client.get("/analisis/").content.decode()
+        assert html.count(">Sugerida por IA</span>") == 2  # etiqueta en la pregunta + leyenda
+        assert 'class=" ai"' in html
+        assert f'name="questions" value="{self.AI_QUESTION}"' in html, "se puede marcar y derivar como cualquier otra"
+
+    def test_no_legend_without_ai_questions(self, client: Client) -> None:
+        _analyze(client, transcript=TRANSCRIPT)
+        assert "Sugerida por IA" not in client.get("/analisis/").content.decode()
+
+
+class TestAiMarkReachesTheCard:
+    def test_derive_sends_which_questions_came_from_the_llm(self, client: Client) -> None:
+        _analyze(client, transcript=TRANSCRIPT)
+        client.get("/analisis/")
+        extra = "¿Hay chicos en la casa?"
+        form = _derive_form(questions=[*QUESTIONS, extra], ai_suggested=[extra, "¿inyectada?"])
+        client.post("/derivar/", form)
+        card = FakeApiClient.derived[0]
+        assert card.ai_suggested_questions == [extra], "solo preguntas que estaban en el checklist"
+        assert extra in card.pending_questions
+
+    def test_cards_page_marks_ai_questions(self, client: Client) -> None:
+        stored = _stored_card().model_copy(update={"ai_suggested_questions": [QUESTIONS[0]]})
+        FakeApiClient.stored_cards = [stored]
+        html = client.get("/cartas/").content.decode()
+        assert f"○ {QUESTIONS[0]} <span class=\"ai-tag\">Sugerida por IA</span>" in html
+        assert f"✓ {QUESTIONS[1]}</li>" in html
+
+
+class TestDatasetPicker:
+    @pytest.mark.parametrize(("url", "action"), [("/", 'action="/"'), ("/analisis/?modo=new", 'action="/analisis/"')])
+    def test_picker_lists_dataset_calls(self, client: Client, url: str, action: str) -> None:
+        if url.startswith("/analisis"):
+            _analyze(client, transcript=TRANSCRIPT)
+            client.get("/analisis/")
+        html = client.get(url).content.decode()
+        assert '<form method="get" ' + action in html
+        assert '<option value="SFX-REC-2026-001" >SFX-REC-2026-001 · Incendio</option>' in html
+
+    def test_chosen_call_is_loaded_and_kept_selected(self, client: Client) -> None:
+        html = client.get(f"/?sample={views.DEMO_SAMPLE_ID}").content.decode()
+        assert f'<option value="{views.DEMO_SAMPLE_ID}" selected>' in html
+        assert "En Thames 1900" in html
+
+
+class TestSimulateLlm:
+    def test_button_only_without_a_real_llm(self, client: Client) -> None:
+        assert 'name="simulate_llm"' in client.get("/").content.decode()
+        FakeApiClient.provider = "anthropic"
+        assert 'name="simulate_llm"' not in client.get("/").content.decode()
+
+    def test_simulated_analysis_is_requested_and_labelled(self, client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
+        ai_item = {"question": "¿Hay chicos?", "answered": False, "source": "ai"}
+        original = FakeApiClient.analyze
+
+        def analyze(self: FakeApiClient, t: str, simulate_llm: bool = False) -> SuggestionVM:
+            original(self, t, simulate_llm)
+            return _suggestion(ai_item).model_copy(update={"simulated": simulate_llm})
+
+        monkeypatch.setattr(FakeApiClient, "analyze", analyze)
+        _analyze(client, transcript=TRANSCRIPT, simulate_llm="1")
+        html = client.get("/analisis/").content.decode()
+        assert FakeApiClient.simulate_flags == [True]
+        assert ">Simulación LLM</span>" in html
+        assert "Sugerida por IA · simulada" in html
+        assert "preguntas de ejemplo fijas" in html
+        assert '<input type="hidden" name="simulate_llm" value="1" />' in html, "reanalizar sigue simulando"
+
+    def test_regular_analysis_is_not_simulated(self, client: Client) -> None:
+        _analyze(client, transcript=TRANSCRIPT)
+        html = client.get("/analisis/").content.decode()
+        assert FakeApiClient.simulate_flags == [False]
+        assert "Simulación LLM" not in html
+
+
+def test_no_template_comment_leaks_into_the_page(client: Client) -> None:
+    # Regresión: Django renderiza como texto un comentario {# ... #} de varias líneas.
+    assert "{#" not in client.get("/").content.decode()
+
+
+def test_pending_saved_by_an_older_version_still_works(client: Client) -> None:
+    session = client.session
+    session[views._PENDING_KEY] = TRANSCRIPT  # formato anterior: texto plano
+    session.save()
+    assert "Sugerencia del copiloto" in client.get("/analisis/").content.decode()
+    assert FakeApiClient.simulate_flags == [False]

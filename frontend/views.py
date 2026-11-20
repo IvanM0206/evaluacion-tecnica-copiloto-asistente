@@ -28,18 +28,21 @@ from frontend.view_models import (
     CATEGORIES,
     PRIORITIES,
     CallCardFormVM,
+    SampleVM,
     SuggestionVM,
     TranscriptInputError,
     split_turns,
     transcript_from_submission,
 )
 
-# Ejemplo ofrecido como "plantilla de ejemplo": una fractura expuesta P1 con calle, altura y esquinas.
-# Con leave-one-out toma el protocolo de traumatismo por caída, que es coherente.
+# Ejemplo ofrecido como "plantilla de ejemplo". Los ejemplos son filas del catálogo analizadas con
+# leave-one-out (la fila misma se excluye del retrieval), así la demo muestra cómo una llamada *nueva*
+# toma el protocolo de su vecino más cercano: una fractura expuesta en un club -> protocolo de
+# traumatismo por caída, con calle y altura con evidencia literal.
 DEMO_SAMPLE_ID = "SFX-REC-2026-023"
 
 _ANALYSIS_KEY = "copilot_analysis"  # análisis actual: {"transcript": str, "suggestion": dict}
-_PENDING_KEY = "copilot_pending"  # transcripción enviada y todavía sin analizar
+_PENDING_KEY = "copilot_pending"  # {"transcript": str, "simulate": bool} enviado y todavía sin analizar
 _DRAFT_KEY = "copilot_draft"  # texto a devolverle al operador tras una entrada rechazada o fallida
 
 LeftMode = Literal["view", "edit", "new"]
@@ -52,6 +55,14 @@ def _base_context(request: HttpRequest, client: ApiClient) -> dict[str, Any]:
     except ApiError as exc:
         messages.error(request, str(exc))
     return context
+
+
+def _samples(client: ApiClient) -> list[SampleVM]:
+    """Transcripciones del dataset para el selector "Elegir una llamada"; si está vacío, el selector no se muestra."""
+    try:
+        return client.samples()
+    except ApiError:
+        return []
 
 
 def _sample_transcript(request: HttpRequest, client: ApiClient, sample_id: str) -> str:
@@ -69,7 +80,12 @@ def index(request: HttpRequest) -> HttpResponse:
     transcript = request.session.pop(_DRAFT_KEY, "")
     if sample_id := request.GET.get("sample"):
         transcript = _sample_transcript(request, client, sample_id)
-    context.update(transcript=transcript, has_analysis=_ANALYSIS_KEY in request.session)
+    context.update(
+        transcript=transcript,
+        has_analysis=_ANALYSIS_KEY in request.session,
+        samples=_samples(client),
+        selected_sample=request.GET.get("sample", ""),
+    )
     return render(request, "frontend/index.html", context)
 
 
@@ -94,7 +110,7 @@ def analyze(request: HttpRequest) -> HttpResponse:
         messages.warning(request, str(exc))
         request.session[_DRAFT_KEY] = (request.POST.get("transcript") or "").strip()
         return _back_to_input(request)
-    request.session[_PENDING_KEY] = transcript
+    request.session[_PENDING_KEY] = {"transcript": transcript, "simulate": bool(request.POST.get("simulate_llm"))}
     return redirect("frontend:loading")
 
 
@@ -116,15 +132,18 @@ def loading(request: HttpRequest) -> HttpResponse:
 def workspace(request: HttpRequest) -> HttpResponse:
     client = ApiClient()
     if pending := request.session.pop(_PENDING_KEY, None):
+        if isinstance(pending, str):  # sesión escrita antes de que existiera el flag de simulación
+            pending = {"transcript": pending, "simulate": False}
+        text, simulate = pending["transcript"], pending["simulate"]
         try:
-            suggestion = client.analyze(pending)
+            suggestion = client.analyze(text, simulate_llm=simulate)
         except ApiError as exc:
             # Conserva el análisis anterior (si hay) y devuelve el texto para reintentar.
             messages.error(request, f"Error al analizar: {exc}")
-            request.session[_DRAFT_KEY] = pending
+            request.session[_DRAFT_KEY] = text
             return _back_to_input(request)
         request.session[_ANALYSIS_KEY] = {
-            "transcript": pending,
+            "transcript": text,
             "suggestion": suggestion.model_dump(mode="json"),
         }
 
@@ -135,16 +154,19 @@ def workspace(request: HttpRequest) -> HttpResponse:
 
     mode: LeftMode = "view"
     new_transcript = ""
+    selected_sample = ""
     if draft := request.session.pop(_DRAFT_KEY, ""):
         mode, new_transcript = "new", draft
     elif sample_id := request.GET.get("sample"):
         mode = "new"
         new_transcript = _sample_transcript(request, client, sample_id)
+        selected_sample = sample_id
     elif request.GET.get("modo") in ("edit", "new"):
         mode = request.GET["modo"]  # type: ignore[assignment]
 
     return _render_workspace(
-        request, client, state["transcript"], suggestion, mode=mode, new_transcript=new_transcript
+        request, client, state["transcript"], suggestion, mode=mode, new_transcript=new_transcript,
+        selected_sample=selected_sample,
     )
 
 
@@ -157,6 +179,7 @@ def _render_workspace(
     mode: LeftMode = "view",
     new_transcript: str = "",
     operator_notes: str = "",
+    selected_sample: str = "",
     status: int = 200,
 ) -> HttpResponse:
     context = _base_context(request, client)
@@ -169,6 +192,8 @@ def _render_workspace(
         mode=mode,
         new_transcript=new_transcript,
         operator_notes=operator_notes,
+        samples=_samples(client),
+        selected_sample=selected_sample,
     )
     return render(request, "frontend/workspace.html", context, status=status)
 

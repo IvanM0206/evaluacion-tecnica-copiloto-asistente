@@ -23,6 +23,7 @@ class CallCardVM(BaseModel):
     priority: str
     answered_questions: list[str] = Field(default_factory=list)
     pending_questions: list[str] = Field(default_factory=list)
+    ai_suggested_questions: list[str] = Field(default_factory=list)
     instructions_given: list[str] = Field(default_factory=list)
     risks: list[str] = Field(default_factory=list)
     suggested_resources: str | None = None
@@ -52,7 +53,8 @@ class CallCardFormVM(BaseModel):
     """El formulario 'Derivar Carta de Llamada', tal como lo envía el operador.
 
     Los inputs HTML usan los mismos nombres que la sugerencia (compartidos con
-    `SuggestionVM.with_operator_edits`); `from_post` los mapea a estos campos.
+    `SuggestionVM.with_operator_edits`); `from_post` los mapea a estos campos. Las preguntas
+    que propuso el LLM viajan además en `ai_suggested`.
     """
 
     transcript: str
@@ -65,6 +67,7 @@ class CallCardFormVM(BaseModel):
     priority: str
     answered_questions: list[str] = Field(default_factory=list)
     pending_questions: list[str] = Field(default_factory=list)
+    ai_suggested_questions: list[str] = Field(default_factory=list)
     instructions_given: list[str] = Field(default_factory=list)
     risks: list[str] = Field(default_factory=list)
     suggested_resources: str | None = None
@@ -92,6 +95,7 @@ class CallCardFormVM(BaseModel):
             priority=data.get("priority", ""),
             answered_questions=[q for q in questions if q in answered],
             pending_questions=[q for q in questions if q not in answered],
+            ai_suggested_questions=[q for q in data.getlist("ai_suggested") if q in questions],
             instructions_given=data.getlist("instructions"),
             risks=data.getlist("risks"),
             suggested_resources=text("suggested_resources"),

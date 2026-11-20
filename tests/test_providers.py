@@ -253,7 +253,7 @@ class TestAnthropicProviderWithMockedTransport:
         body = json.loads(seen[0].content)
         assert body["output_config"]["effort"] == "low"
         assert body["output_config"]["format"]["type"] == "json_schema"
-        assert "street" in body["output_config"]["format"]["schema"]["properties"]
+        assert "suggested_questions" in body["output_config"]["format"]["schema"]["properties"]
         assert body["fallbacks"] == "default"
         assert "server-side-fallback-2026-07-01" in seen[0].headers["anthropic-beta"]
         assert body["system"] == EXTRACTION_PROMPT.system

@@ -145,6 +145,7 @@ def test_create_card_returns_201_and_is_listed(api: Client) -> None:
     assert card["id"] > 0 and card["created_at"]
     assert card["street"] == "Av. Corrientes" and card["street_number"] == "1540"
     assert card["neighborhood"] is None, "el texto opcional vacío vuelve como null"
+    assert card["ai_suggested_questions"] == []
 
     listed = api.get("/api/cards")
     assert listed.status_code == 200
@@ -167,3 +168,20 @@ def test_create_card_rejects_invalid_payload(api: Client, override: dict[str, st
 
 def test_cards_empty_list(api: Client) -> None:
     assert api.get("/api/cards").json() == []
+
+
+def test_card_keeps_ai_suggested_questions(api: Client) -> None:
+    extra = "¿Hay chicos en el local?"
+    payload = _card_payload(pending_questions=["¿Pudo cortar la llave de gas general?", extra], ai_suggested_questions=[extra])
+    created = api.post("/api/cards", payload, content_type="application/json").json()
+    assert created["ai_suggested_questions"] == [extra]
+    assert api.get("/api/cards").json()[0]["ai_suggested_questions"] == [extra]
+
+
+def test_analyze_can_simulate_the_llm(api: Client) -> None:
+    transcript = api.get(f"/api/catalog/samples/{FIRE_ID}").json()["transcript"]
+    body = api.post(
+        "/api/copilot/analyze", {"transcript": transcript, "simulate_llm": True}, content_type="application/json"
+    ).json()
+    assert body["simulated"] is True and body["provider"] == "simulación LLM"
+    assert any(item["source"] == "ai" for item in body["checklist"])

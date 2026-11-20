@@ -11,7 +11,10 @@
 
     <header class="panel-head">
       <h2>Sugerencia del copiloto</h2>
-      <span class="badge">Certeza {{ suggestion.confidence_pct }}%</span>
+      <div class="row">
+        {% if suggestion.simulated %}<span class="badge sim" title="Respuestas de ejemplo fijas para mostrar cómo se vería con un LLM real">Simulación LLM</span>{% endif %}
+        <span class="badge">Certeza {{ suggestion.confidence_pct }}%</span>
+      </div>
     </header>
 
     <div class="panel-body accordions">
@@ -72,15 +75,18 @@
         </summary>
         <ul class="checklist">
           {% for c in suggestion.checklist_pending_first %}
-            <li class="{% if c.answered %}done{% endif %}">
+            <li class="{% if c.answered %}done{% endif %}{% if c.suggested_by_ai %} ai{% endif %}">
               <input type="hidden" name="questions" value="{{ c.question }}" />
+              {% if c.suggested_by_ai %}<input type="hidden" name="ai_suggested" value="{{ c.question }}" />{% endif %}
               <input type="checkbox" name="answered" value="{{ c.question }}" id="q{{ forloop.counter }}" {% if c.answered %}checked{% endif %} />
               <label for="q{{ forloop.counter }}">{{ c.question }}
+                {% if c.suggested_by_ai %}<span class="ai-tag" title="Pregunta extra propuesta por el LLM: no forma parte del protocolo">Sugerida por IA{% if suggestion.simulated %} · simulada{% endif %}</span>{% endif %}
                 {% if c.answered %}<span class="ev">{% if c.grounded %}✓{% else %}⚠{% endif %} {{ c.answer|default:"" }}</span>{% endif %}
               </label>
             </li>
           {% endfor %}
         </ul>
+        {% if suggestion.has_ai_questions %}<p class="muted">Las preguntas <span class="ai-tag">Sugerida por IA</span> no son del protocolo: {% if suggestion.simulated %}en esta simulación son preguntas de ejemplo fijas para la categoría, no generadas por un modelo.{% else %}las propone el modelo a partir del relato. Decidí vos si hacerlas.{% endif %}</p>{% endif %}
       </details>
 
       <details class="accordion" open>

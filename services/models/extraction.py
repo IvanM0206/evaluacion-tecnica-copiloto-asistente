@@ -10,6 +10,9 @@ from pydantic import BaseModel, Field
 
 from backend.choices import Category, Priority
 
+# Preguntas extra (fuera del protocolo) que puede proponer un LLM; más que esto es ruido bajo estrés.
+MAX_SUGGESTED_QUESTIONS = 3
+
 
 class ExtractedField(BaseModel):
     value: str | None = Field(None, description="Valor extraído, o null si no se menciona.")
@@ -37,3 +40,10 @@ class RawExtraction(BaseModel):
     checklist: list[ChecklistAnswer]
     risks: list[str]
     summary: str = Field(description="Resumen operativo de una o dos líneas para el despachador.")
+    suggested_questions: list[str] = Field(
+        default_factory=list,
+        description=(
+            f"Hasta {MAX_SUGGESTED_QUESTIONS} preguntas relevantes que el relato no responde y que no "
+            "están en la lista de protocolo. Lista vacía si no hay ninguna."
+        ),
+    )

@@ -13,7 +13,7 @@ from __future__ import annotations
 from backend.choices import Category, Priority
 from services.models.call_card import CallCard, CallCardCreate
 from services.models.catalog import IncidentCreate, ReferenceCase, SampleTranscript
-from services.models.extraction import ChecklistAnswer, ExtractedField, RawExtraction
+from services.models.extraction import MAX_SUGGESTED_QUESTIONS, ChecklistAnswer, ExtractedField, RawExtraction
 from services.models.health import HealthStatus
 from services.models.suggestion import (
     AnalyzeRequest,
@@ -24,6 +24,7 @@ from services.models.suggestion import (
 )
 
 __all__ = [
+    "MAX_SUGGESTED_QUESTIONS",
     "AnalyzeRequest",
     "CallCard",
     "CallCardCreate",

@@ -10,13 +10,15 @@
 <body class="{% block body_class %}{% endblock %}">
   {% with current=request.resolver_match.url_name %}
   <header class="topbar">
-    <h1><a href="{% url 'frontend:index' %}">Copiloto de Operador</a></h1>
-    {# Navegación principal: sumar acá las pantallas nuevas (un <a> por ítem). #}
+    <div class="topbar-row">
+      <h1><a href="{% url 'frontend:index' %}">Copiloto de Operador</a></h1>
+      {% if health %}<span class="topbar-status" title="Proveedor del copiloto y tamaño del catálogo de referencia"><span class="dot"></span>{{ health.provider }} · {{ health.catalog_size }} casos</span>{% endif %}
+    </div>
+    {# Secciones: sumar acá las pantallas nuevas (un <a> por sección). #}
     <nav class="topnav" aria-label="Secciones">
       <a href="{% url 'frontend:index' %}" {% if current in "index workspace" %}class="active" aria-current="page"{% endif %}>Panel</a>
       <a href="{% url 'frontend:cards' %}" {% if current == "cards" %}class="active" aria-current="page"{% endif %}>Cartas derivadas</a>
     </nav>
-    {% if health %}<span class="badge topbar-status">Proveedor: {{ health.provider }} · {{ health.catalog_size }} casos</span>{% endif %}
   </header>
   {% endwith %}
 

@@ -188,3 +188,82 @@ def test_analysis_passes_the_best_case_of_every_category(fake_catalog: FakeCatal
     assert all(case.category == category for category, (case, _) in anchors.items())
     assert FIRE_ID not in {case.id for case, _ in anchors.values()}, "leave-one-out también en el respaldo"
 
+
+# --------------------------------------------- preguntas extra sugeridas por el LLM
+def _suggesting(*questions: str) -> TamperingProvider:
+    return TamperingProvider(lambda raw: raw.model_copy(update={"suggested_questions": list(questions)}))
+
+
+def test_llm_suggested_questions_are_appended_as_pending_and_marked(
+    fake_catalog: FakeCatalog, fire_transcript: str
+) -> None:
+    extra = "¿Hay chicos o personas mayores en los pisos de arriba?"
+    suggestion = CopilotService(fake_catalog, _suggesting(extra)).analyze(fire_transcript)
+
+    protocol = [c for c in suggestion.checklist if c.source == "protocol"]
+    ai = [c for c in suggestion.checklist if c.source == "ai"]
+    assert protocol, "las preguntas de protocolo siguen estando"
+    assert [(c.question, c.answered, c.grounded) for c in ai] == [(extra, False, False)]
+    assert suggestion.checklist[-1].question == extra, "las sugeridas van después del protocolo"
+
+
+def test_suggested_questions_are_capped_normalized_and_deduplicated(
+    fake_catalog: FakeCatalog, fire_transcript: str
+) -> None:
+    mock = CopilotService(fake_catalog, MockProvider()).analyze(fire_transcript)
+    protocol_question = mock.checklist[0].question
+    proposed = [
+        protocol_question,                                   # repite el protocolo
+        "  hay   chicos en el edificio ",                     # se normaliza como pregunta
+        "¿Hay chicos en el edificio?",                        # duplicado de la anterior
+        "",                                                   # vacía
+        "x" * 300,                                            # demasiado larga
+        "¿El local tiene salida trasera?",
+        "¿Alguien intentó apagar el fuego con agua?",
+        "¿Hay garrafas de reserva en el depósito?",           # pasa el tope de 3
+    ]
+    suggestion = CopilotService(fake_catalog, _suggesting(*proposed)).analyze(fire_transcript)
+
+    ai = [c.question for c in suggestion.checklist if c.source == "ai"]
+    assert ai == [
+        "¿hay chicos en el edificio?",
+        "¿El local tiene salida trasera?",
+        "¿Alguien intentó apagar el fuego con agua?",
+    ]
+
+
+def test_mock_suggests_no_extra_questions(fake_catalog: FakeCatalog, fire_transcript: str) -> None:
+    suggestion = CopilotService(fake_catalog, MockProvider()).analyze(fire_transcript)
+    assert all(c.source == "protocol" for c in suggestion.checklist)
+
+
+def test_suggested_questions_do_not_change_confidence(fake_catalog: FakeCatalog, fire_transcript: str) -> None:
+    base = CopilotService(fake_catalog, _suggesting()).analyze(fire_transcript)
+    with_extra = CopilotService(fake_catalog, _suggesting("¿El local tiene salida trasera?")).analyze(fire_transcript)
+    assert with_extra.confidence == base.confidence
+
+
+# --------------------------------------------------------- simulación del LLM
+def test_simulated_llm_adds_example_questions_and_flags_the_result(
+    fake_catalog: FakeCatalog, fire_transcript: str
+) -> None:
+    from services.providers.simulated import SIMULATED_QUESTIONS
+
+    real = CopilotService(fake_catalog, MockProvider()).analyze(fire_transcript)
+    sim = CopilotService(fake_catalog, MockProvider()).analyze(fire_transcript, simulate_llm=True)
+
+    assert sim.simulated and not real.simulated
+    assert sim.provider == "simulación LLM"
+    assert sim.warnings[0].startswith("Simulación del LLM")
+    ai = [c.question for c in sim.checklist if c.source == "ai"]
+    assert ai and set(ai) <= set(SIMULATED_QUESTIONS[sim.category])
+    assert [c for c in sim.checklist if c.source == "protocol"] == real.checklist, "la parte de protocolo no cambia"
+    assert sim.confidence == real.confidence, "la simulación usa reglas: misma certeza"
+
+
+def test_every_category_has_simulated_questions() -> None:
+    from services.models import Category
+    from services.providers.simulated import SIMULATED_QUESTIONS
+
+    assert set(SIMULATED_QUESTIONS) == set(Category)
+    assert all(1 <= len(qs) <= 3 for qs in SIMULATED_QUESTIONS.values())

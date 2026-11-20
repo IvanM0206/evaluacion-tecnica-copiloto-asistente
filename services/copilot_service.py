@@ -5,6 +5,7 @@ import re
 
 from services.catalog_service import CatalogService
 from services.models import (
+    MAX_SUGGESTED_QUESTIONS,
     Category,
     ChecklistItem,
     CopilotSuggestion,
@@ -16,13 +17,15 @@ from services.models import (
 )
 from services.nlp.normalization import StreetGazetteer, canonical_street
 from services.nlp.retrieval import CaseRetriever
-from services.nlp.text import fold, is_grounded
-from services.providers import ExtractionContext, ExtractionProvider, MockProvider, ProviderError
+from services.nlp.text import fold, is_grounded, tokens
+from services.providers import ExtractionContext, ExtractionProvider, MockProvider, ProviderError, SimulatedLLMProvider
 from services.providers.base import MIN_SIMILARITY
 
 log = logging.getLogger(__name__)
 
 MAX_QUESTIONS = 8
+MAX_SUGGESTED_QUESTION_CHARS = 160
+DUPLICATE_OVERLAP = 0.8  # solapamiento de tokens a partir del cual una pregunta sugerida repite una del protocolo
 
 
 class CopilotService:
@@ -62,7 +65,7 @@ class CopilotService:
         return self._gazetteer
 
     # ----------------------------------------------------------------- público
-    def analyze(self, transcript: str) -> CopilotSuggestion:
+    def analyze(self, transcript: str, simulate_llm: bool = False) -> CopilotSuggestion:
         ranking = self.retriever.search(transcript, k=len(self.catalog))
         similar = ranking[:5]
         anchors: dict[Category, tuple[ReferenceCase, float]] = {}
@@ -76,16 +79,22 @@ class CopilotService:
         )
 
         warnings: list[str] = []
-        provider_name = self.provider.name
+        provider = SimulatedLLMProvider() if simulate_llm else self.provider
+        provider_name = provider.name
+        if simulate_llm:
+            warnings.append(
+                "Simulación del LLM: lo marcado como IA son respuestas de ejemplo fijas, no generadas por un modelo."
+            )
         try:
-            raw = self.provider.extract(transcript, ctx)
+            raw = provider.extract(transcript, ctx)
         except ProviderError as exc:
-            log.warning("provider %s failed: %s", self.provider.name, exc)
+            log.warning("provider %s failed: %s", provider.name, exc)
             warnings.append(f"Proveedor IA no disponible ({exc}). Se usó el modo reglas.")
             raw = self._fallback.extract(transcript, ctx)
             provider_name = f"{self._fallback.name} (fallback)"
 
-        return self._build_suggestion(transcript, raw, ctx, provider_name, warnings)
+        suggestion = self._build_suggestion(transcript, raw, ctx, provider_name, warnings)
+        return suggestion.model_copy(update={"simulated": simulate_llm})
 
     # -------------------------------------------------------------- auxiliares
     @staticmethod
@@ -174,6 +183,10 @@ class CopilotService:
             )
         if dropped := set(by_question) - set(allowed):
             warnings.append(f"Se descartaron {len(dropped)} preguntas no pertenecientes al protocolo.")
+        checklist += [
+            ChecklistItem(question=q, answered=False, source="ai")
+            for q in self._suggested_questions(raw.suggested_questions, [c.question for c in checklist])
+        ]
 
         if not street.value:
             warnings.append("No se detectó la calle: confirmar dirección con el llamante.")
@@ -219,6 +232,33 @@ class CopilotService:
         )
 
     @staticmethod
+    def _suggested_questions(proposed: list[str], protocol: list[str]) -> list[str]:
+        """Preguntas extra propuestas por el LLM, tratadas como no confiables: normalizadas,
+        sin duplicar el checklist de protocolo (ni entre sí) y con un tope prudente.
+
+        Siempre se muestran como pendientes y marcadas como sugeridas por IA; solo el operador
+        decide si hacerlas.
+        """
+        kept: list[str] = []
+        seen = [set(tokens(q)) for q in protocol]
+        for text in proposed:
+            question = " ".join(text.split()).strip(" -•")
+            if not question or len(question) > MAX_SUGGESTED_QUESTION_CHARS:
+                continue
+            if not question.endswith("?"):
+                question += "?"
+            if not question.startswith("¿"):
+                question = "¿" + question
+            words = set(tokens(question))
+            if not words or any(len(words & s) / len(words | s) >= DUPLICATE_OVERLAP for s in seen if s):
+                continue
+            seen.append(words)
+            kept.append(question)
+            if len(kept) == MAX_SUGGESTED_QUESTIONS:
+                break
+        return kept
+
+    @staticmethod
     def _confidence(
         street_ok: bool, location_ok: bool, top_score: float, checklist: list[ChecklistItem], provider: str
     ) -> float:
@@ -231,6 +271,6 @@ class CopilotService:
             + 0.35 * min(top_score / 0.35, 1.0)
             + 0.20 * grounded_ratio
         )
-        if provider.startswith("mock"):
+        if provider.startswith("mock") or provider == SimulatedLLMProvider.name:
             score *= 0.9  # las reglas son más frágiles que un LLM ante redacciones nuevas
         return round(min(max(score, 0.0), 1.0), 2)

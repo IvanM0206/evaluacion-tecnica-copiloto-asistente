@@ -14,6 +14,7 @@ from frontend.view_models import (
     MAX_UPLOAD_BYTES,
     CallCardFormVM,
     CallCardVM,
+    ChecklistItemVM,
     FieldVM,
     SuggestionVM,
     TranscriptInputError,
@@ -296,3 +297,9 @@ class TestCallCardFormVM:
             CallCardFormVM.from_post(
                 _post(transcript=TRANSCRIPT, street="   ", category="DEFENSA_CIVIL", subcategory="x", priority="P2")
             )
+
+
+class TestAiSuggestedQuestions:
+    def test_source_marks_ai_questions(self) -> None:
+        assert ChecklistItemVM(question="¿a?", answered=False, source="ai").suggested_by_ai
+        assert not ChecklistItemVM(question="¿b?", answered=False).suggested_by_ai

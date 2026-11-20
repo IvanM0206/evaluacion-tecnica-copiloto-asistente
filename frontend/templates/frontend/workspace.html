@@ -45,6 +45,7 @@
       <form method="post" action="{% url 'frontend:analyze' %}" class="panel-body stack">
         {% csrf_token %}
         <input type="hidden" name="origin" value="workspace" />
+        {% if suggestion.simulated %}<input type="hidden" name="simulate_llm" value="1" />{% endif %}
         <textarea id="edit-transcript" name="transcript" class="transcript-input grow" aria-label="Transcripción">{{ transcript }}</textarea>
         <div class="row between actions">
           <label for="mode-view" class="btn btn-ghost">Cancelar</label>
@@ -62,7 +63,7 @@
       <div class="panel-body">
         {% url 'frontend:workspace' as workspace_url %}
         {% with sample_url=workspace_url|add:"?sample="|add:demo_sample_id %}
-          {% include "frontend/_upload_form.html" with origin="workspace" prefix="new" value=new_transcript %}
+          {% include "frontend/_upload_form.html" with origin="workspace" prefix="new" value=new_transcript picker_action=workspace_url %}
         {% endwith %}
       </div>
     </div>

@@ -1,4 +1,4 @@
-"""Una pregunta de protocolo del checklist dinámico."""
+"""Una pregunta del checklist dinámico: del catálogo de protocolo o sugerida por el LLM."""
 
 from __future__ import annotations
 
@@ -11,3 +11,8 @@ class ChecklistItemVM(BaseModel):
     answer: str | None = None
     evidence: str | None = None
     grounded: bool = False
+    source: str = "protocol"  # "protocol" | "ai"
+
+    @property
+    def suggested_by_ai(self) -> bool:
+        return self.source == "ai"

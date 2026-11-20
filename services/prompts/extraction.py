@@ -6,12 +6,19 @@ from collections.abc import Sequence
 
 from services.models import ReferenceCase
 from services.prompts.base import PromptTemplate
-from services.prompts.sections import CLASSIFICATION, DISPATCH_SUMMARY, GROUNDING, PROTOCOL_CHECKLIST, ROLE
+from services.prompts.sections import (
+    CLASSIFICATION,
+    DISPATCH_SUMMARY,
+    GROUNDING,
+    PROTOCOL_CHECKLIST,
+    ROLE,
+    SUGGESTED_QUESTIONS,
+)
 
 EXTRACTION_PROMPT = PromptTemplate(
     name="extraction",
-    version="1",
-    sections=(ROLE, GROUNDING, CLASSIFICATION, PROTOCOL_CHECKLIST, DISPATCH_SUMMARY),
+    version="2",
+    sections=(ROLE, GROUNDING, CLASSIFICATION, PROTOCOL_CHECKLIST, SUGGESTED_QUESTIONS, DISPATCH_SUMMARY),
 )
 
 
